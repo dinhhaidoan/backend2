@@ -14,6 +14,10 @@ const Student = require('./student.model')(sequelize, DataTypes);
 const Teacher = require('./teacher.model')(sequelize, DataTypes);
 const User = require('./user.model')(sequelize, DataTypes);
 const Admin = require('./admin.model')(sequelize, DataTypes);
+const NoteCategory = require('./note_category.model')(sequelize, DataTypes);
+const NoteTag = require('./note_tag.model')(sequelize, DataTypes);
+const NoteTagMap = require('./note_tag_map.model')(sequelize, DataTypes);
+const Note = require('./note.model')(sequelize, DataTypes);
 
 // -------------------- Associations --------------------
 
@@ -64,6 +68,20 @@ Position.hasMany(Teacher, { foreignKey: 'position_id' });
 
 
 // -------------------- Init Database & Seed --------------------
+// -------------------- Note models & relations --------------------
+NoteCategory.hasMany(Note, { foreignKey: 'note_category_id' });
+Note.belongsTo(NoteCategory, { foreignKey: 'note_category_id' });
+
+// User - Note (use DB column user_id on notes, mapped from note_user_id attribute)
+Note.belongsTo(User, { foreignKey: 'user_id' });
+User.hasMany(Note, { foreignKey: 'user_id' });
+
+// Note <-> Tag (many-to-many) using NoteTagMap columns (note_tag_map_note_id, note_tag_map_note_tag_id)
+Note.belongsToMany(NoteTag, { through: { model: NoteTagMap, unique: 'uniq_ntm' }, foreignKey: 'note_id', otherKey: 'note_tag_id' });
+NoteTag.belongsToMany(Note, { through: { model: NoteTagMap, unique: 'uniq_ntm' }, foreignKey: 'note_tag_id', otherKey: 'note_id' });
+
+NoteTag.belongsTo(User, { foreignKey: 'user_id' });
+User.hasMany(NoteTag, { foreignKey: 'user_id' });
 const initDb = async () => {
   try {
     // Sync DB, alter bảng nếu cần
@@ -90,6 +108,13 @@ const initDb = async () => {
       console.log('Default positions seeded.');
     }
 
+    // Seed note categories (mặc định) nếu chưa có
+    const noteCategoryCount = await NoteCategory.count();
+    if (noteCategoryCount === 0) {
+      await NoteCategory.seedDefault();
+      console.log('Default note categories seeded.');
+    }
+
     console.log('Database initialized successfully.');
   } catch (err) {
     console.error('Database initialization failed:', err);
@@ -111,6 +136,10 @@ const models = {
   Teacher,
   User,
   Admin,
+  NoteCategory,
+  NoteTag,
+  NoteTagMap,
+  Note,
 };
 
 module.exports = { sequelize, models, initDb };
