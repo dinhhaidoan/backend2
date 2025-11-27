@@ -7,6 +7,9 @@ const AcademicYear = require('./academic_year.model')(sequelize, DataTypes);
 const Semester = require('./semester.model')(sequelize, DataTypes);
 const Major = require('./majo.model')(sequelize, DataTypes);
 const OfficeClass = require('./office_class.model')(sequelize, DataTypes);
+const Course = require('./course.model')(sequelize, DataTypes);
+const CourseMajor = require('./course_major.model')(sequelize, DataTypes);
+const CoursePrerequisite = require('./course_prerequisite.model')(sequelize, DataTypes);
 const ParentStudent = require('./parent.student.model')(sequelize, DataTypes);
 const Position = require('./position.model')(sequelize, DataTypes);
 const Role = require('./role.model')(sequelize, DataTypes);
@@ -19,6 +22,9 @@ const NoteCategory = require('./note_category.model')(sequelize, DataTypes);
 const NoteTag = require('./note_tag.model')(sequelize, DataTypes);
 const NoteTagMap = require('./note_tag_map.model')(sequelize, DataTypes);
 const Note = require('./note.model')(sequelize, DataTypes);
+const Base = require('./base.model')(sequelize, DataTypes);
+const Floor = require('./floor.model')(sequelize, DataTypes);
+const Room = require('./room.model')(sequelize, DataTypes);
 
 // -------------------- Associations --------------------
 
@@ -66,6 +72,18 @@ AcademicYear.hasMany(OfficeClass, { foreignKey: 'academic_year_id' });
 OfficeClass.belongsTo(Major, { foreignKey: 'major_id' });
 Major.hasMany(OfficeClass, { foreignKey: 'major_id' });
 
+// Course relations - Course is the program entry; will be used by future Course/Class models
+Course.belongsTo(Semester, { foreignKey: 'semester_id' });
+Semester.hasMany(Course, { foreignKey: 'semester_id' });
+
+// Course <-> Major (many-to-many)
+Course.belongsToMany(Major, { through: { model: CourseMajor, unique: 'uniq_cm' }, foreignKey: 'course_id', otherKey: 'major_id' });
+Major.belongsToMany(Course, { through: { model: CourseMajor, unique: 'uniq_cm' }, foreignKey: 'major_id', otherKey: 'course_id' });
+
+// Course prerequisites (self-referential many-to-many)
+Course.belongsToMany(Course, { as: 'Prerequisites', through: { model: CoursePrerequisite, unique: 'uniq_cp' }, foreignKey: 'course_id', otherKey: 'prereq_course_id' });
+Course.belongsToMany(Course, { as: 'IsPrerequisiteFor', through: { model: CoursePrerequisite, unique: 'uniq_cp' }, foreignKey: 'prereq_course_id', otherKey: 'course_id' });
+
 // Teacher relations
 Teacher.belongsTo(AcademicDegree, { foreignKey: 'academic_degree_id' });
 AcademicDegree.hasMany(Teacher, { foreignKey: 'academic_degree_id' });
@@ -89,6 +107,16 @@ NoteTag.belongsToMany(Note, { through: { model: NoteTagMap, unique: 'uniq_ntm' }
 
 NoteTag.belongsTo(User, { foreignKey: 'user_id' });
 User.hasMany(NoteTag, { foreignKey: 'user_id' });
+
+// Base / Floor / Room relations
+Base.hasMany(Floor, { foreignKey: 'base_id' });
+Floor.belongsTo(Base, { foreignKey: 'base_id' });
+
+Floor.hasMany(Room, { foreignKey: 'floor_id' });
+Room.belongsTo(Floor, { foreignKey: 'floor_id' });
+
+Base.hasMany(Room, { foreignKey: 'base_id' });
+Room.belongsTo(Base, { foreignKey: 'base_id' });
 
 // messages model removed as chat feature no longer used
 const initDb = async () => {
@@ -123,6 +151,27 @@ const initDb = async () => {
       await NoteCategory.seedDefault();
       console.log('Default note categories seeded.');
     }
+
+    // Seed bases
+    const baseCount = await Base.count();
+    if (baseCount === 0) {
+      await Base.seedDefaults();
+      console.log('Default bases seeded.');
+    }
+
+    // Seed floors
+    const floorCount = await Floor.count();
+    if (floorCount === 0) {
+      await Floor.seedDefaults();
+      console.log('Default floors seeded.');
+    }
+
+    // Seed rooms
+    const roomCount = await Room.count();
+    if (roomCount === 0) {
+      await Room.seedDefaults();
+      console.log('Default rooms seeded.');
+    }
     console.log('Database initialized successfully.');
   } catch (err) {
     console.error('Database initialization failed:', err);
@@ -145,11 +194,16 @@ const models = {
   Teacher,
   User,
   Admin,
+  Base,
+  Floor,
+  Room,
   NoteCategory,
   NoteTag,
   NoteTagMap,
   Note,
-  // Message removed
+  Course,
+  CourseMajor,
+  CoursePrerequisite,
 };
 
 module.exports = { sequelize, models, initDb };
