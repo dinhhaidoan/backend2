@@ -1,13 +1,19 @@
 require('dotenv').config();
 
 const express = require('express');
+// socket removed — no socket dependencies
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+// jwt import not needed here
 const { initDb, models } = require('./models/index.model'); // import sequelize + models + initDb
 const mainRoute = require('./routes/main.route');
+const { secret } = require('./config/jwt');
 
 const app = express();
+// start express app directly
 const PORT = process.env.PORT || 3000;
+
+// socket features removed
 
 // -------------------- Middleware --------------------
 app.use(cors({
@@ -31,6 +37,8 @@ app.use(cookieParser());
 
 // -------------------- Routes --------------------
 app.use('/api', mainRoute);
+
+// no realtime features left
 
 // -------------------- Start Server --------------------
 (async () => {

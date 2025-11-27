@@ -4,6 +4,7 @@ const sequelize = require('../config/database');
 // Import models
 const AcademicDegree = require('./academic_degree.model')(sequelize, DataTypes);
 const AcademicYear = require('./academic_year.model')(sequelize, DataTypes);
+const Semester = require('./semester.model')(sequelize, DataTypes);
 const Major = require('./majo.model')(sequelize, DataTypes);
 const OfficeClass = require('./office_class.model')(sequelize, DataTypes);
 const ParentStudent = require('./parent.student.model')(sequelize, DataTypes);
@@ -48,6 +49,8 @@ OfficeClass.hasMany(Student, { foreignKey: 'office_class_id' });
 Student.belongsTo(AcademicYear, { foreignKey: 'academic_year_id' });
 AcademicYear.hasMany(Student, { foreignKey: 'academic_year_id' });
 
+// Semester is standalone (no direct FK to AcademicYear)
+
 // Parent - Student
 ParentStudent.belongsTo(Student, { foreignKey: 'student_id' });
 Student.hasMany(ParentStudent, { foreignKey: 'student_id' });
@@ -58,6 +61,10 @@ Teacher.hasMany(OfficeClass, { foreignKey: 'teacher_id' });
 
 OfficeClass.belongsTo(AcademicYear, { foreignKey: 'academic_year_id' });
 AcademicYear.hasMany(OfficeClass, { foreignKey: 'academic_year_id' });
+
+// OfficeClass - Major (added to support major_id on OfficeClass)
+OfficeClass.belongsTo(Major, { foreignKey: 'major_id' });
+Major.hasMany(OfficeClass, { foreignKey: 'major_id' });
 
 // Teacher relations
 Teacher.belongsTo(AcademicDegree, { foreignKey: 'academic_degree_id' });
@@ -82,6 +89,8 @@ NoteTag.belongsToMany(Note, { through: { model: NoteTagMap, unique: 'uniq_ntm' }
 
 NoteTag.belongsTo(User, { foreignKey: 'user_id' });
 User.hasMany(NoteTag, { foreignKey: 'user_id' });
+
+// messages model removed as chat feature no longer used
 const initDb = async () => {
   try {
     // Sync DB, alter bảng nếu cần
@@ -114,7 +123,6 @@ const initDb = async () => {
       await NoteCategory.seedDefault();
       console.log('Default note categories seeded.');
     }
-
     console.log('Database initialized successfully.');
   } catch (err) {
     console.error('Database initialization failed:', err);
@@ -126,6 +134,7 @@ const initDb = async () => {
 const models = {
   AcademicDegree,
   AcademicYear,
+  Semester,
   Major,
   OfficeClass,
   ParentStudent,
@@ -140,6 +149,7 @@ const models = {
   NoteTag,
   NoteTagMap,
   Note,
+  // Message removed
 };
 
 module.exports = { sequelize, models, initDb };

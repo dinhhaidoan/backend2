@@ -32,6 +32,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true,
     },
+    user_avatar_public_id: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     user_description: {
       type: DataTypes.TEXT,
       allowNull: true,

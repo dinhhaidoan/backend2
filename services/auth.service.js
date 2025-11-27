@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
+const cloudinary = require('../config/cloudinary');
 // index.model.js exports { sequelize, models, initDb }
 const { sequelize, models } = require('../models/index.model');
-const { User, Role, Student, Teacher, Staff, Admin, ParentStudent } = models;
+const { User, Role, Student, Teacher, Staff, Admin, ParentStudent, AcademicDegree, Position, Major } = models;
 const { hashPassword, comparePassword } = require('../utils/hashPassword');
 const { secret, expiresIn } = require('../config/jwt');
 
@@ -167,12 +168,12 @@ const getAllUsers = async () => {
   const users = await User.findAll({
     attributes: { exclude: ['user_password'] },
     include: [
-      { model: Role, attributes: ['role_id', 'role_name'] },
-      { model: Student },
-      { model: Teacher },
-      { model: Staff },
-      { model: Admin },
-    ],
+        { model: Role, attributes: ['role_id', 'role_name'] },
+        { model: Student },
+        { model: Teacher, include: [ { model: AcademicDegree, attributes: ['academic_degree_id','academic_degree_name'] }, { model: Position, attributes: ['position_id','position_name'] } ] },
+        { model: Staff },
+        { model: Admin },
+      ],
   });
 
   return users;
@@ -186,7 +187,7 @@ const getUserByCode = async (user_code) => {
     include: [
       { model: Role, attributes: ['role_id', 'role_name'] },
       { model: Student },
-      { model: Teacher },
+      { model: Teacher, include: [ { model: AcademicDegree, attributes: ['academic_degree_id','academic_degree_name'] }, { model: Position, attributes: ['position_id','position_name'] } ] },
       { model: Staff },
       { model: Admin },
     ],
@@ -329,12 +330,201 @@ const updateUser = async (user_code, payload = {}) => {
       // Role not recognized — do nothing special
     }
 
-    const updatedUser = await User.findOne({ where: { user_id }, attributes: { exclude: ['user_password'] }, include: [{ model: Role, attributes: ['role_id', 'role_name'] }, { model: Student }, { model: Teacher }, { model: Staff }, { model: Admin }], transaction: t });
+    const updatedUser = await User.findOne({ where: { user_id }, attributes: { exclude: ['user_password'] }, include: [
+      { model: Role, attributes: ['role_id', 'role_name'] },
+      { model: Student },
+      { model: Teacher, include: [ { model: AcademicDegree, attributes: ['academic_degree_id','academic_degree_name'] }, { model: Position, attributes: ['position_id','position_name'] } ] },
+      { model: Staff },
+      { model: Admin }
+    ], transaction: t });
     return updatedUser;
   });
 };
 
 module.exports = { registerUser, createAccountWithProfile, loginUser, getAllUsers, getUserByCode, updateUser };
+
+const getUserById = async (user_id) => {
+  if (!user_id) throw new Error('Missing user_id');
+  const user = await User.findOne({
+    where: { user_id },
+    attributes: { exclude: ['user_password'] },
+    include: [
+      { model: Role, attributes: ['role_id', 'role_name'] },
+      { model: Student },
+      { model: Teacher, include: [ { model: AcademicDegree, attributes: ['academic_degree_id','academic_degree_name'] }, { model: Position, attributes: ['position_id','position_name'] } ] },
+      { model: Staff },
+      { model: Admin },
+    ],
+  });
+  if (!user) throw new Error('User not found');
+  return user;
+};
+
+module.exports.getUserById = getUserById;
+
+/**
+ * Upload an avatar for a user identified by user_code.
+ * - fileBuffer: Buffer of image data (from multer memoryStorage)
+ * - mimetype: content-type string
+ */
+const uploadUserAvatar = async (user_code, fileBuffer, mimetype) => {
+  if (!user_code) throw new Error('Missing user_code');
+  if (!fileBuffer) throw new Error('Missing file data');
+
+  const user = await User.findOne({ where: { user_code } });
+  if (!user) throw new Error('User not found');
+
+  // Upload buffer to Cloudinary using upload_stream
+  const streamUpload = (buffer) => {
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream({ folder: 'users/avatars', resource_type: 'image' }, (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      });
+      stream.end(buffer);
+    });
+  };
+
+  // Delete previous avatar on Cloudinary if present
+  if (user.user_avatar_public_id) {
+    try {
+      await cloudinary.uploader.destroy(user.user_avatar_public_id, { resource_type: 'image' });
+    } catch (e) {
+      // don't fail whole operation if deletion fails, just log
+      console.warn('Failed removing old avatar', e.message || e);
+    }
+  }
+
+  const uploadResult = await streamUpload(fileBuffer);
+  // update user record
+  user.user_avatar = uploadResult.secure_url || uploadResult.url || null;
+  user.user_avatar_public_id = uploadResult.public_id || null;
+  await user.save();
+
+  // return updated user (exclude password)
+  const updated = await User.findOne({ where: { user_id: user.user_id }, attributes: { exclude: ['user_password'] } });
+  return updated;
+};
+
+const deleteUserAvatar = async (user_code) => {
+  if (!user_code) throw new Error('Missing user_code');
+  const user = await User.findOne({ where: { user_code } });
+  if (!user) throw new Error('User not found');
+
+  if (user.user_avatar_public_id) {
+    try {
+      await cloudinary.uploader.destroy(user.user_avatar_public_id, { resource_type: 'image' });
+    } catch (e) {
+      console.warn('Failed to delete avatar from Cloudinary', e.message || e);
+    }
+  }
+
+  user.user_avatar = null;
+  user.user_avatar_public_id = null;
+  await user.save();
+  return { message: 'Avatar deleted' };
+};
+
+module.exports.uploadUserAvatar = uploadUserAvatar;
+module.exports.deleteUserAvatar = deleteUserAvatar;
+
+// Lookup helpers for frontend (dropdowns)
+const { Op } = require('sequelize');
+
+const getAcademicDegrees = async () => {
+  return await AcademicDegree.findAll({ attributes: ['academic_degree_id','academic_degree_name'], order: [['academic_degree_id','ASC']] });
+};
+
+const getPositions = async () => {
+  return await Position.findAll({ attributes: ['position_id','position_name'], order: [['position_id','ASC']] });
+};
+
+module.exports.getAcademicDegrees = getAcademicDegrees;
+module.exports.getPositions = getPositions;
+
+const getMajors = async () => {
+  // Major model may be seeded/hardcoded via Major.seedDefaults; return available majors
+  return await Major.findAll({ attributes: ['major_id', 'major_name'], order: [['major_id', 'ASC']] });
+};
+
+module.exports.getMajors = getMajors;
+
+/**
+ * Get teacher profile by teacher_code including AcademicDegree and User info
+ */
+const getTeacherByTeacherCode = async (teacher_code) => {
+  if (!teacher_code) throw new Error('Missing teacher_code');
+  const teacher = await Teacher.findOne({
+    where: { teacher_code },
+    include: [
+      { model: AcademicDegree, attributes: ['academic_degree_id','academic_degree_name'] },
+      { model: Position, attributes: ['position_id','position_name'] },
+      { model: User, attributes: ['user_id','user_code','user_email'] },
+    ],
+  });
+  if (!teacher) throw new Error('Teacher not found');
+  return teacher;
+};
+
+module.exports.getTeacherByTeacherCode = getTeacherByTeacherCode;
+
+/**
+ * Return paginated users who are Teachers.
+ * Options: { page, limit, q }
+ */
+const getTeachers = async ({ page = 1, limit = 20, q = '' } = {}) => {
+  const offset = Math.max(0, (Number(page) - 1)) * Number(limit);
+
+  // Build search condition: user_code, user_email, teacher_name, teacher_code
+  const search = q && q.trim() ? q.trim() : null;
+
+  const where = {};
+
+  // We'll apply search through include where or root-level fields using sequelize $ notation where needed
+  const include = [
+    { model: Role, attributes: ['role_id', 'role_name'], where: { role_name: { [Op.like]: '%Giảng%' } } },
+    { model: Teacher, include: [ { model: AcademicDegree, attributes: ['academic_degree_id','academic_degree_name'] }, { model: Position, attributes: ['position_id','position_name'] } ] },
+  ];
+
+  // If search provided, apply OR on user_code/user_email and teacher fields
+  if (search) {
+    where[Op.or] = [
+      { user_code: { [Op.like]: `%${search}%` } },
+      { user_email: { [Op.like]: `%${search}%` } },
+      // teacher fields will be filtered via include using $Teacher.teacher_name$ notation
+    ];
+  }
+
+  const result = await User.findAndCountAll({
+    where,
+    attributes: { exclude: ['user_password'] },
+    include,
+    limit: Number(limit),
+    offset,
+    order: [['user_id','DESC']],
+  });
+
+  // If q present, filter out by teacher fields not covered by root where (Sequelize cannot easily mix $include$ conditions when using findAndCountAll with include.where locked)
+  // To support searches for teacher_name or teacher_code, do simple post-filter if necessary
+  let items = result.rows;
+  if (search) {
+    const s = search.toLowerCase();
+    items = items.filter(u => {
+      const t = u.Teacher || {};
+      return (t.teacher_name && t.teacher_name.toLowerCase().includes(s)) || (t.teacher_code && t.teacher_code.toLowerCase().includes(s)) || true;
+    });
+  }
+
+  return {
+    items,
+    total: result.count,
+    page: Number(page),
+    limit: Number(limit),
+    lastPage: Math.ceil(result.count / Number(limit) || 1),
+  };
+};
+
+module.exports.getTeachers = getTeachers;
 
 /**
  * Delete user and all linked profile data according to role.
