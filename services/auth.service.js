@@ -96,7 +96,20 @@ const createAccountWithProfile = async ({ user: userData, role_name, role_id, pr
       const studentAllowed = ['student_name','student_code','student_birthdate','student_gender','student_address','student_CCCD','student_place_of_birth','student_day_joined','student_year_expected','academic_year_id','major_id','office_class_id','student_active'];
       const studentPayload = pick(profileData, studentAllowed);
       studentPayload.user_id = newUser.user_id;
-      await Student.create(studentPayload, { transaction: t });
+      const savedStudent = await Student.create(studentPayload, { transaction: t });
+
+      // create ParentStudent rows if provided in profileData.parents
+      if (Array.isArray(profileData.parents) && profileData.parents.length) {
+        const parentAllowed = ['parent_name', 'parent_relationship', 'parent_contact'];
+        for (const p of profileData.parents) {
+          const payload = pick(p, parentAllowed);
+          if (!payload.parent_name || !payload.parent_relationship) {
+            throw new Error('Missing parent fields: parent_name and parent_relationship are required');
+          }
+          payload.student_id = savedStudent.student_id;
+          await ParentStudent.create(payload, { transaction: t });
+        }
+      }
     } else if (isTeacher) {
       const { teacher_name, teacher_code, academic_degree_id, position_id } = profileData || {};
       if (!teacher_name || !teacher_code || !academic_degree_id || !position_id) {
@@ -125,7 +138,14 @@ const createAccountWithProfile = async ({ user: userData, role_name, role_id, pr
       throw new Error('Role không được hỗ trợ để tạo profile tự động');
     }
 
-    return { message: 'Tạo tài khoản và hồ sơ thành công', user: { id: newUser.user_id, user_code: newUser.user_code, user_email: newUser.user_email }, role: role.role_name };
+    const createdUser = await User.findOne({ where: { user_id: newUser.user_id }, attributes: { exclude: ['user_password'] }, include: [
+      { model: Role, attributes: ['role_id','role_name'] },
+      { model: Student, include: [ { model: ParentStudent } ] },
+      { model: Teacher, include: [ { model: AcademicDegree, attributes: ['academic_degree_id','academic_degree_name'] }, { model: Position, attributes: ['position_id','position_name'] } ] },
+      { model: Staff },
+      { model: Admin }
+    ], transaction: t });
+    return { message: 'Tạo tài khoản và hồ sơ thành công', user: createdUser, role: role.role_name };
   });
 };
 
@@ -168,8 +188,8 @@ const getAllUsers = async () => {
   const users = await User.findAll({
     attributes: { exclude: ['user_password'] },
     include: [
-        { model: Role, attributes: ['role_id', 'role_name'] },
-        { model: Student },
+      { model: Role, attributes: ['role_id', 'role_name'] },
+      { model: Student, include: [ { model: ParentStudent } ] },
         { model: Teacher, include: [ { model: AcademicDegree, attributes: ['academic_degree_id','academic_degree_name'] }, { model: Position, attributes: ['position_id','position_name'] } ] },
         { model: Staff },
         { model: Admin },
@@ -186,7 +206,7 @@ const getUserByCode = async (user_code) => {
     attributes: { exclude: ['user_password'] },
     include: [
       { model: Role, attributes: ['role_id', 'role_name'] },
-      { model: Student },
+      { model: Student, include: [ { model: ParentStudent } ] },
       { model: Teacher, include: [ { model: AcademicDegree, attributes: ['academic_degree_id','academic_degree_name'] }, { model: Position, attributes: ['position_id','position_name'] } ] },
       { model: Staff },
       { model: Admin },
@@ -274,12 +294,37 @@ const updateUser = async (user_code, payload = {}) => {
       const existing = await Student.findOne({ where: { user_id }, transaction: t });
       if (existing) {
         if (Object.keys(studentPayload).length) await Student.update(studentPayload, { where: { user_id }, transaction: t });
+        // If parents array provided, update parent records: delete old + create new
+        if (Array.isArray(profileData.parents)) {
+          // delete existing parents for this student
+          await ParentStudent.destroy({ where: { student_id: existing.student_id }, transaction: t });
+          const parentAllowed = ['parent_name', 'parent_relationship', 'parent_contact'];
+          for (const p of profileData.parents) {
+            const payload = pick(p, parentAllowed);
+            if (!payload.parent_name || !payload.parent_relationship) {
+              throw new Error('Missing parent fields: parent_name and parent_relationship are required');
+            }
+            payload.student_id = existing.student_id;
+            await ParentStudent.create(payload, { transaction: t });
+          }
+        }
       } else {
         const { student_name, student_code, academic_year_id, major_id, office_class_id } = studentPayload;
         if (!student_name || !student_code || !academic_year_id || !major_id || !office_class_id) {
           throw new Error('Thiếu trường bắt buộc khi tạo hồ sơ Sinh viên: student_name, student_code, academic_year_id, major_id, office_class_id');
         }
-        await Student.create(studentPayload, { transaction: t });
+        const savedSt = await Student.create(studentPayload, { transaction: t });
+        if (Array.isArray(profileData.parents) && profileData.parents.length) {
+          const parentAllowed = ['parent_name', 'parent_relationship', 'parent_contact'];
+          for (const p of profileData.parents) {
+            const payload = pick(p, parentAllowed);
+            if (!payload.parent_name || !payload.parent_relationship) {
+              throw new Error('Missing parent fields: parent_name and parent_relationship are required');
+            }
+            payload.student_id = savedSt.student_id;
+            await ParentStudent.create(payload, { transaction: t });
+          }
+        }
       }
       await deleteIfNotTarget();
     } else if (isTeacher) {
@@ -350,7 +395,7 @@ const getUserById = async (user_id) => {
     attributes: { exclude: ['user_password'] },
     include: [
       { model: Role, attributes: ['role_id', 'role_name'] },
-      { model: Student },
+      { model: Student, include: [ { model: ParentStudent } ] },
       { model: Teacher, include: [ { model: AcademicDegree, attributes: ['academic_degree_id','academic_degree_name'] }, { model: Position, attributes: ['position_id','position_name'] } ] },
       { model: Staff },
       { model: Admin },

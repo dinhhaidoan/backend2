@@ -46,6 +46,14 @@ module.exports = {
         const required = ['student_name', 'student_code', 'academic_year_id', 'major_id', 'office_class_id'];
         const miss = missingFields(profile, required);
         if (miss.length) return res.status(400).json({ error: 'Thiếu trường hồ sơ sinh viên', missing: miss });
+        // if parents provided, ensure shape
+        if (Array.isArray(profile.parents)) {
+          const missingParentFields = [];
+          profile.parents.forEach((p, idx) => {
+            if (!p.parent_name || !p.parent_relationship) missingParentFields.push({ index: idx, missing: ['parent_name','parent_relationship'] });
+          });
+          if (missingParentFields.length) return res.status(400).json({ error: 'Thiếu trường cho phụ huynh', missing: missingParentFields });
+        }
       } else if (rn.includes('giảng')) {
         const required = ['teacher_name', 'teacher_code', 'academic_degree_id', 'position_id'];
         const miss = missingFields(profile, required);

@@ -14,6 +14,7 @@ const baseRoute = require('./base.route');
 const floorRoute = require('./floor.route');
 const roomRoute = require('./room.route');
 const courseScheduleRoute = require('./course_schedule.route');
+const parentStudentRoute = require('./parent_student.route');
 
 
 router.use('/share/auth', authRoute);
@@ -29,5 +30,6 @@ router.use('/share/bases', baseRoute);
 router.use('/share/floors', floorRoute);
 router.use('/share/rooms', roomRoute);
 router.use('/share/course-schedules', courseScheduleRoute);
+router.use('/share/parents', parentStudentRoute);
 
 module.exports = router;
