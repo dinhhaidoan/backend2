@@ -28,11 +28,8 @@ const Room = require('./room.model')(sequelize, DataTypes);
 const CourseClass = require('./course_class.model')(sequelize, DataTypes);
 const Group = require('./group.model')(sequelize, DataTypes);
 const Enrollment = require('./enrollment.model')(sequelize, DataTypes);
-const Weekday = require('./weekday.model')(sequelize, DataTypes);
 const Slot = require('./slot.model')(sequelize, DataTypes);
-const CourseSchedule = require('./course_schedule.model')(sequelize, DataTypes);
-const CourseScheduleDay = require('./course_schedule_day.model')(sequelize, DataTypes);
-const CourseScheduleSlot = require('./course_schedule_slot.model')(sequelize, DataTypes);
+// Course schedule models removed
 
 // -------------------- Associations --------------------
 
@@ -57,8 +54,8 @@ User.hasOne(Admin, { foreignKey: 'user_id' });
 Student.belongsTo(Major, { foreignKey: 'major_id' });
 Major.hasMany(Student, { foreignKey: 'major_id' });
 
-Student.belongsTo(OfficeClass, { foreignKey: 'office_class_id' });
-OfficeClass.hasMany(Student, { foreignKey: 'office_class_id' });
+Student.belongsTo(OfficeClass, { foreignKey: 'office_class_id', onDelete: 'SET NULL', onUpdate: 'CASCADE' });
+OfficeClass.hasMany(Student, { foreignKey: 'office_class_id', onDelete: 'SET NULL', hooks: true });
 
 Student.belongsTo(AcademicYear, { foreignKey: 'academic_year_id' });
 AcademicYear.hasMany(Student, { foreignKey: 'academic_year_id' });
@@ -159,26 +156,7 @@ CourseClass.hasMany(Enrollment, { foreignKey: 'course_class_id' });
 Enrollment.belongsTo(Group, { foreignKey: 'group_id' });
 Group.hasMany(Enrollment, { foreignKey: 'group_id' });
 
-// -------------------- Course Schedule models --------------------
-// CourseSchedule belongs to CourseClass
-CourseSchedule.belongsTo(CourseClass, { foreignKey: 'course_class_id' });
-CourseClass.hasMany(CourseSchedule, { foreignKey: 'course_class_id' });
-
-// CourseScheduleDay maps a schedule to weekdays
-CourseSchedule.hasMany(CourseScheduleDay, { foreignKey: 'schedule_id' });
-CourseScheduleDay.belongsTo(CourseSchedule, { foreignKey: 'schedule_id' });
-
-// Weekday relation
-Weekday.hasMany(CourseScheduleDay, { foreignKey: 'weekday_id' });
-CourseScheduleDay.belongsTo(Weekday, { foreignKey: 'weekday_id' });
-
-// CourseScheduleSlot maps day -> slot numbers
-CourseScheduleDay.hasMany(CourseScheduleSlot, { foreignKey: 'day_id' });
-CourseScheduleSlot.belongsTo(CourseScheduleDay, { foreignKey: 'day_id' });
-
-// Optional reference to Slot (time definitions)
-Slot.hasMany(CourseScheduleSlot, { foreignKey: 'slot_ref_id' });
-CourseScheduleSlot.belongsTo(Slot, { foreignKey: 'slot_ref_id' });
+// Course schedule models & associations removed
 
 // messages model removed as chat feature no longer used
 const initDb = async () => {
@@ -234,13 +212,6 @@ const initDb = async () => {
       await Room.seedDefaults();
       console.log('Default rooms seeded.');
     }
-    // Seed weekdays (1..7)
-    const weekdayCount = await Weekday.count();
-    if (weekdayCount === 0) {
-      await Weekday.seedDefaults();
-      console.log('Default weekdays seeded.');
-    }
-
     // Seed slots (1..13)
     const slotCount = await Slot.count();
     if (slotCount === 0) {
@@ -282,11 +253,8 @@ const models = {
   CourseClass,
   Group,
   Enrollment,
-  Weekday,
   Slot,
-  CourseSchedule,
-  CourseScheduleDay,
-  CourseScheduleSlot,
+  // Course schedule models removed
 };
 
 module.exports = { sequelize, models, initDb };

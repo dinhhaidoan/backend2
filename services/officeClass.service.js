@@ -97,11 +97,16 @@ const deleteOfficeClass = async (id) => {
   const row = await OfficeClass.findOne({ where: { office_class_id: id } });
   if (!row) throw new Error('OfficeClass not found');
 
-  // Prevent delete if students exist
-  const studentsCount = await Student.count({ where: { office_class_id: id } });
-  if (studentsCount > 0) throw new Error('Cannot delete: linked students exist');
-
-  await OfficeClass.destroy({ where: { office_class_id: id } });
+  // If students exist, set their office_class_id to null then remove office class
+  const transaction = await sequelize.transaction();
+  try {
+    await Student.update({ office_class_id: null }, { where: { office_class_id: id }, transaction: transaction });
+    await OfficeClass.destroy({ where: { office_class_id: id }, transaction: transaction });
+    await transaction.commit();
+  } catch (err) {
+    await transaction.rollback();
+    throw err;
+  }
   return { message: 'Deleted' };
 };
 
