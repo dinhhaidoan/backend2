@@ -9,8 +9,18 @@ const hasManagePermission = (roleName) => {
 
 exports.list = async (req, res) => {
   try {
-    const { page = 1, limit = 20, q = '', status } = req.query;
-    const result = await listCourseClasses({ page, limit, q, status });
+    // 1. Thêm teacher_code vào đây
+    const { page = 1, limit = 20, q = '', status, teacher_code } = req.query; 
+    
+    // 2. Truyền sang service
+    const result = await listCourseClasses({ 
+      page, 
+      limit, 
+      q, 
+      status, 
+      teacher_code // <--- Quan trọng
+    });
+    
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

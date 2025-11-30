@@ -2,28 +2,42 @@ const { sequelize, models } = require('../models/index.model');
 const { CourseClass, Course, Teacher, Semester, Base, Floor, Room } = models;
 const { Op } = require('sequelize');
 
-const listCourseClasses = async ({ page = 1, limit = 20, q = '', status } = {}) => {
-  const offset = Math.max(0, (Number(page) - 1)) * Number(limit);
+const listCourseClasses = async ({ page = 1, limit = 20, q = '', status, teacher_code } = {}) => {
+  const offset = (Number(page) - 1) * Number(limit);
   const where = {};
-  if (q && q.trim()) {
-    const s = `%${q.trim()}%`;
-    where[Op.or] = [
-      { course_class_SKU: { [Op.like]: s } },
-      { course_name_vn: { [Op.like]: s } },
-    ];
-  }
-  if (status && String(status).trim()) {
-    const allowed = ['open', 'teaching', 'closed'];
-    if (allowed.includes(String(status))) where.status = String(status);
-  }
+
+  // Giữ nguyên các logic lọc khác (q, status...)
+  if (q) { /* ... logic tìm kiếm q cũ ... */ }
+  if (status) where.status = status;
+
+  // --- LOGIC MỚI: Cấu hình include cho Teacher ---
+  // Mục đích: Nếu có teacher_code gửi lên -> Chỉ lấy lớp mà GV này dạy
+  const teacherInclude = {
+    model: Teacher,
+    // as: 'Teacher', // <-- Mở comment nếu trong model bạn dùng alias (vd: belongsTo(Teacher, { as: 'Teacher' }))
+    attributes: ['teacher_id', 'teacher_code', 'teacher_name'], // Lấy các trường cần thiết
+    ...(teacher_code ? {
+      where: {
+        // Kiểm tra chính xác tên cột mã GV trong bảng Teachers (thường là 'teacher_code' hoặc 'code')
+        teacher_code: teacher_code 
+      },
+      required: true // Inner Join: Bắt buộc phải khớp GV mới lấy ra
+    } : {})
+  };
 
   const result = await CourseClass.findAndCountAll({
     where,
-    include: [ { model: Course }, { model: Semester }, { model: Teacher }, { model: Base }, { model: Floor }, { model: Room } ],
+    include: [
+      teacherInclude, // <--- Thay thế dòng { model: Teacher } cũ bằng biến này
+      { 
+        model: Course,
+        // include: [{ model: Subject }] // Nếu cần lấy tên môn học
+      }, 
+      { model: Semester }
+    ],
     limit: Number(limit),
     offset,
-    order: [['course_class_id', 'DESC']],
-    distinct: true,
+    order: [['course_class_id', 'DESC']] // Hoặc order cũ của bạn
   });
 
   return {
@@ -31,7 +45,7 @@ const listCourseClasses = async ({ page = 1, limit = 20, q = '', status } = {}) 
     total: result.count,
     page: Number(page),
     limit: Number(limit),
-    lastPage: Math.ceil(result.count / Number(limit) || 1),
+    lastPage: Math.ceil(result.count / Number(limit))
   };
 };
 

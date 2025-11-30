@@ -22,18 +22,10 @@ const NoteCategory = require('./note_category.model')(sequelize, DataTypes);
 const NoteTag = require('./note_tag.model')(sequelize, DataTypes);
 const NoteTagMap = require('./note_tag_map.model')(sequelize, DataTypes);
 const Note = require('./note.model')(sequelize, DataTypes);
-const Base = require('./base.model')(sequelize, DataTypes);
-const Floor = require('./floor.model')(sequelize, DataTypes);
-const Room = require('./room.model')(sequelize, DataTypes);
 const CourseClass = require('./course_class.model')(sequelize, DataTypes);
-const Group = require('./group.model')(sequelize, DataTypes);
-const Enrollment = require('./enrollment.model')(sequelize, DataTypes);
-const Weekday = require('./weekday.model')(sequelize, DataTypes);
-const Slot = require('./slot.model')(sequelize, DataTypes);
-const CourseSchedule = require('./course_schedule.model')(sequelize, DataTypes);
-const CourseScheduleDay = require('./course_schedule_day.model')(sequelize, DataTypes);
-const CourseScheduleSlot = require('./course_schedule_slot.model')(sequelize, DataTypes);
-
+const Lesson = require('./lesson.model')(sequelize, DataTypes);
+const LessonYoutubeLink = require('./lesson_youtube_link.model')(sequelize, DataTypes);
+const LessonDriveLink = require('./lesson_drive_link.model')(sequelize, DataTypes);
 // -------------------- Associations --------------------
 
 // User - Role
@@ -94,15 +86,15 @@ Semester.hasMany(CourseClass, { foreignKey: 'semester_id' });
 CourseClass.belongsTo(Teacher, { foreignKey: 'teacher_id' });
 Teacher.hasMany(CourseClass, { foreignKey: 'teacher_id' });
 
-CourseClass.belongsTo(Room, { foreignKey: 'room_id' });
-Room.hasMany(CourseClass, { foreignKey: 'room_id' });
+// Lesson relations
+Lesson.belongsTo(CourseClass, { foreignKey: 'course_class_id' });
+CourseClass.hasMany(Lesson, { foreignKey: 'course_class_id' });
 
-// Optional: relate base/floor if stored on CourseClass
-CourseClass.belongsTo(Base, { foreignKey: 'base_id' });
-Base.hasMany(CourseClass, { foreignKey: 'base_id' });
+Lesson.hasMany(LessonYoutubeLink, { foreignKey: 'lesson_id' });
+LessonYoutubeLink.belongsTo(Lesson, { foreignKey: 'lesson_id' });
 
-CourseClass.belongsTo(Floor, { foreignKey: 'floor_id' });
-Floor.hasMany(CourseClass, { foreignKey: 'floor_id' });
+Lesson.hasMany(LessonDriveLink, { foreignKey: 'lesson_id' });
+LessonDriveLink.belongsTo(Lesson, { foreignKey: 'lesson_id' });
 
 // Course <-> Major (many-to-many)
 Course.belongsToMany(Major, { through: { model: CourseMajor, unique: 'uniq_cm' }, foreignKey: 'course_id', otherKey: 'major_id' });
@@ -135,50 +127,6 @@ NoteTag.belongsToMany(Note, { through: { model: NoteTagMap, unique: 'uniq_ntm' }
 
 NoteTag.belongsTo(User, { foreignKey: 'user_id' });
 User.hasMany(NoteTag, { foreignKey: 'user_id' });
-
-// Base / Floor / Room relations
-Base.hasMany(Floor, { foreignKey: 'base_id' });
-Floor.belongsTo(Base, { foreignKey: 'base_id' });
-
-Floor.hasMany(Room, { foreignKey: 'floor_id' });
-Room.belongsTo(Floor, { foreignKey: 'floor_id' });
-
-Base.hasMany(Room, { foreignKey: 'base_id' });
-Room.belongsTo(Base, { foreignKey: 'base_id' });
-
-// Group and Enrollment relations
-Group.belongsTo(CourseClass, { foreignKey: 'course_class_id' });
-CourseClass.hasMany(Group, { foreignKey: 'course_class_id' });
-
-Enrollment.belongsTo(Student, { foreignKey: 'student_id' });
-Student.hasMany(Enrollment, { foreignKey: 'student_id' });
-
-Enrollment.belongsTo(CourseClass, { foreignKey: 'course_class_id' });
-CourseClass.hasMany(Enrollment, { foreignKey: 'course_class_id' });
-
-Enrollment.belongsTo(Group, { foreignKey: 'group_id' });
-Group.hasMany(Enrollment, { foreignKey: 'group_id' });
-
-// -------------------- Course Schedule models --------------------
-// CourseSchedule belongs to CourseClass
-CourseSchedule.belongsTo(CourseClass, { foreignKey: 'course_class_id' });
-CourseClass.hasMany(CourseSchedule, { foreignKey: 'course_class_id' });
-
-// CourseScheduleDay maps a schedule to weekdays
-CourseSchedule.hasMany(CourseScheduleDay, { foreignKey: 'schedule_id' });
-CourseScheduleDay.belongsTo(CourseSchedule, { foreignKey: 'schedule_id' });
-
-// Weekday relation
-Weekday.hasMany(CourseScheduleDay, { foreignKey: 'weekday_id' });
-CourseScheduleDay.belongsTo(Weekday, { foreignKey: 'weekday_id' });
-
-// CourseScheduleSlot maps day -> slot numbers
-CourseScheduleDay.hasMany(CourseScheduleSlot, { foreignKey: 'day_id' });
-CourseScheduleSlot.belongsTo(CourseScheduleDay, { foreignKey: 'day_id' });
-
-// Optional reference to Slot (time definitions)
-Slot.hasMany(CourseScheduleSlot, { foreignKey: 'slot_ref_id' });
-CourseScheduleSlot.belongsTo(Slot, { foreignKey: 'slot_ref_id' });
 
 // messages model removed as chat feature no longer used
 const initDb = async () => {
@@ -213,40 +161,6 @@ const initDb = async () => {
       await NoteCategory.seedDefault();
       console.log('Default note categories seeded.');
     }
-
-    // Seed bases
-    const baseCount = await Base.count();
-    if (baseCount === 0) {
-      await Base.seedDefaults();
-      console.log('Default bases seeded.');
-    }
-
-    // Seed floors
-    const floorCount = await Floor.count();
-    if (floorCount === 0) {
-      await Floor.seedDefaults();
-      console.log('Default floors seeded.');
-    }
-
-    // Seed rooms
-    const roomCount = await Room.count();
-    if (roomCount === 0) {
-      await Room.seedDefaults();
-      console.log('Default rooms seeded.');
-    }
-    // Seed weekdays (1..7)
-    const weekdayCount = await Weekday.count();
-    if (weekdayCount === 0) {
-      await Weekday.seedDefaults();
-      console.log('Default weekdays seeded.');
-    }
-
-    // Seed slots (1..13)
-    const slotCount = await Slot.count();
-    if (slotCount === 0) {
-      await Slot.seedDefaults();
-      console.log('Default slots seeded.');
-    }
     console.log('Database initialized successfully.');
   } catch (err) {
     console.error('Database initialization failed:', err);
@@ -269,9 +183,6 @@ const models = {
   Teacher,
   User,
   Admin,
-  Base,
-  Floor,
-  Room,
   NoteCategory,
   NoteTag,
   NoteTagMap,
@@ -280,13 +191,9 @@ const models = {
   CourseMajor,
   CoursePrerequisite,
   CourseClass,
-  Group,
-  Enrollment,
-  Weekday,
-  Slot,
-  CourseSchedule,
-  CourseScheduleDay,
-  CourseScheduleSlot,
+  Lesson,
+  LessonYoutubeLink,
+  LessonDriveLink,
 };
 
 module.exports = { sequelize, models, initDb };

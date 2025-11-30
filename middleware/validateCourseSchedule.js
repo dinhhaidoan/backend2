@@ -84,10 +84,38 @@ const updateRules = (req, res, next) => {
   next();
 };
 
+const autoCreateRules = (req, res, next) => {
+  const errors = [];
+  const b = req.body || {};
+  if (!b.course_class_id || !isPositiveInt(b.course_class_id)) errors.push({ field: 'course_class_id', message: 'course_class_id is required and must be a positive integer' });
+  if (!b.weeks || !isPositiveInt(b.weeks) || Number(b.weeks) < 1) errors.push({ field: 'weeks', message: 'weeks is required and must be a positive integer >=1' });
+  if (b.credits !== undefined && (!isPositiveInt(b.credits) || Number(b.credits) <= 0)) errors.push({ field: 'credits', message: 'credits must be a positive integer' });
+  if (b.periods_per_credit !== undefined && (!isPositiveInt(b.periods_per_credit) || Number(b.periods_per_credit) <= 0)) errors.push({ field: 'periods_per_credit', message: 'periods_per_credit must be a positive integer' });
+  if (b.weekdays !== undefined) {
+    if (!Array.isArray(b.weekdays)) errors.push({ field: 'weekdays', message: 'weekdays must be an array' });
+    else {
+      for (const [i, w] of (b.weekdays || []).entries()) {
+        if (!isPositiveInt(w) || w < 1 || w > 7) errors.push({ field: `weekdays[${i}]`, message: 'weekday must be 1..7' });
+      }
+    }
+  }
+  if (b.preferred_slots !== undefined) {
+    if (!Array.isArray(b.preferred_slots)) errors.push({ field: 'preferred_slots', message: 'preferred_slots must be an array' });
+    else {
+      for (const [i, s] of (b.preferred_slots || []).entries()) {
+        if (!isPositiveInt(s) || s < 1 || s > 13) errors.push({ field: `preferred_slots[${i}]`, message: 'slot must be 1..13' });
+      }
+    }
+  }
+
+  req._courseScheduleValidation = errors;
+  next();
+};
+
 const validate = (req, res, next) => {
   const errors = req._courseScheduleValidation || [];
   if (errors.length) return res.status(400).json({ error: 'Validation error', details: errors });
   next();
 };
 
-module.exports = { createRules, updateRules, validate };
+module.exports = { createRules, updateRules, validate, autoCreateRules };

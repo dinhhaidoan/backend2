@@ -8,13 +8,8 @@ const semesterRoute = require('./semester.route');
 const officeClassRoute = require('./office_class.route');
 const courseRoute = require('./course.route');
 const courseClassRoute = require('./course_class.route');
-const groupRoute = require('./group.route');
-const enrollmentRoute = require('./enrollment.route');
-const baseRoute = require('./base.route');
-const floorRoute = require('./floor.route');
-const roomRoute = require('./room.route');
-const courseScheduleRoute = require('./course_schedule.route');
 const parentStudentRoute = require('./parent_student.route');
+const lessonRoute = require('./lesson.route');
 
 
 router.use('/share/auth', authRoute);
@@ -24,12 +19,7 @@ router.use('/share/semesters', semesterRoute);
 router.use('/share/office-classes', officeClassRoute);
 router.use('/share/courses', courseRoute);
 router.use('/share/course-classes', courseClassRoute);
-router.use('/share/groups', groupRoute);
-router.use('/share/enrollments', enrollmentRoute);
-router.use('/share/bases', baseRoute);
-router.use('/share/floors', floorRoute);
-router.use('/share/rooms', roomRoute);
-router.use('/share/course-schedules', courseScheduleRoute);
 router.use('/share/parents', parentStudentRoute);
+router.use('/share/lessons', lessonRoute);
 
 module.exports = router;
