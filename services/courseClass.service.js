@@ -2,7 +2,7 @@ const { sequelize, models } = require('../models/index.model');
 const { CourseClass, Course, Teacher, Semester, Base, Floor, Room } = models;
 const { Op } = require('sequelize');
 
-const listCourseClasses = async ({ page = 1, limit = 20, q = '', status } = {}) => {
+const listCourseClasses = async ({ page = 1, limit = 20, q = '', status, teacher_id, teacher_code } = {}) => {
   const offset = Math.max(0, (Number(page) - 1)) * Number(limit);
   const where = {};
   if (q && q.trim()) {
@@ -15,6 +15,19 @@ const listCourseClasses = async ({ page = 1, limit = 20, q = '', status } = {}) 
   if (status && String(status).trim()) {
     const allowed = ['open', 'teaching', 'closed'];
     if (allowed.includes(String(status))) where.status = String(status);
+  }
+
+  // Filter by teacher: prefer teacher_id directly; if only teacher_code provided, resolve it
+  if (teacher_id !== undefined && teacher_id !== null && String(teacher_id).trim() !== '') {
+    where.teacher_id = Number(teacher_id);
+  } else if (teacher_code !== undefined && teacher_code !== null && String(teacher_code).trim() !== '') {
+    const t = await Teacher.findOne({ where: { teacher_code: String(teacher_code) } });
+    if (t) {
+      where.teacher_id = t.teacher_id;
+    } else {
+      // No teacher found for that code — make where match nothing
+      where.teacher_id = -1;
+    }
   }
 
   const result = await CourseClass.findAndCountAll({
