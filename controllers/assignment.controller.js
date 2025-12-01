@@ -18,3 +18,25 @@ exports.getById = async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 };
+
+// controllers/assignment.controller.js
+
+exports.autoCreate = async (req, res) => {
+  try {
+    const { course_class_id, topic, difficulty, quantity, type, title } = req.body;
+    
+    // Validate cơ bản
+    if (!topic || !course_class_id) return res.status(400).json({ error: "Thiếu thông tin bắt buộc" });
+
+    const result = await assignmentService.autoGenerateAssignment({ 
+      course_class_id, topic, difficulty, quantity, type, title 
+    });
+
+    res.status(201).json({ 
+      message: "Tạo bài tập tự động thành công! Vui lòng kiểm tra và xuất bản.", 
+      result 
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};

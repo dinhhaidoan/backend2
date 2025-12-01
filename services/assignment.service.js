@@ -1,6 +1,6 @@
 const { sequelize, models } = require('../models/index.model');
 const { Assignment, Question } = models;
-const { generateRubric, analyzeMCQ, generateTestCases } = require('./ai.service');
+const { generateRubric, analyzeMCQ, generateTestCases,generateQuestionsByTopic } = require('./ai.service');
 
 const createAssignmentWithQuestions = async (data) => {
   const { course_class_id, title, description, questions } = data;
@@ -86,4 +86,41 @@ const getAssignmentDetails = async (id) => {
   });
 };
 
-module.exports = { createAssignmentWithQuestions, getAssignmentDetails };
+const autoGenerateAssignment = async ({ course_class_id, topic, difficulty, quantity, type, title }) => {
+  return await sequelize.transaction(async (t) => {
+    // 1. Gọi AI sinh câu hỏi
+    const questionsData = await generateQuestionsByTopic(topic, difficulty, quantity, type);
+
+    if (!questionsData || questionsData.length === 0) {
+      throw new Error("AI không thể tạo câu hỏi lúc này. Vui lòng thử lại.");
+    }
+
+    // 2. Tạo Assignment (Draft)
+    const newAssignment = await Assignment.create({
+      course_class_id,
+      title: title || `Bài tập tự động: ${topic}`,
+      description: `Được tạo tự động bởi AI. Chủ đề: ${topic}, Độ khó: ${difficulty}`,
+      status: 'draft', // Quan trọng: Để draft cho GV sửa trước khi published
+      type: 'mixed' // Hoặc theo type truyền vào
+    }, { transaction: t });
+
+    // 3. Chuẩn bị dữ liệu Questions để Bulk Create
+    const questionsPayload = questionsData.map(q => ({
+      assignment_id: newAssignment.assignment_id,
+      content: q.content,
+      question_type: type === 'essay' ? 'essay' : 'mcq', // Map đúng enum
+      max_score: q.max_score || 10,
+      skill_tags: q.suggested_skill_tags,
+      mcq_options: q.options || null,
+      mcq_correct_index: q.correct_index,
+      // Nếu là essay, có thể gọi thêm hàm generateRubric ở đây nếu muốn hệ thống hoàn hảo
+    }));
+
+    // 4. Lưu câu hỏi vào DB
+    await Question.bulkCreate(questionsPayload, { transaction: t });
+
+    return newAssignment; // Trả về assignment để FE redirect tới trang Edit
+  });
+};
+
+module.exports = { createAssignmentWithQuestions, getAssignmentDetails, autoGenerateAssignment };

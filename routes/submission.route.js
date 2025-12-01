@@ -4,6 +4,6 @@ const submissionController = require('../controllers/submission.controller');
 
 // POST /api/share/submissions
 router.post('/', submissionController.submit);
-router.patch('/details/:detail_id', authMiddleware, submissionController.updateGrade);
+router.patch('/details/:detail_id', submissionController.updateGrade);
 
 module.exports = router;

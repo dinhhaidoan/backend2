@@ -166,4 +166,51 @@ const gradeCode = async (questionContent, testCases, studentCode, language, maxS
   }
 };
 
-module.exports = { generateRubric, gradeSubmission, analyzeMCQ, generateTestCases, gradeCode };
+// Hàm tạo bài tập tự động
+const generateQuestionsByTopic = async (topic, difficulty, count, questionType) => {
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    // Prompt quan trọng: Phải ép AI trả về đúng cấu trúc JSON mà model Question cần
+    const prompt = `
+      Bạn là một giáo viên giỏi. Hãy soạn một bộ đề thi cho sinh viên IT.
+      
+      YÊU CẦU:
+      1. Chủ đề: "${topic}"
+      2. Độ khó: "${difficulty}" (Ví dụ: Cơ bản, Trung bình, Khó)
+      3. Số lượng câu: ${count}
+      4. Loại câu hỏi: "${questionType}" (chỉ chọn 'mcq' hoặc 'essay')
+
+      OUTPUT JSON FORMAT (Bắt buộc, không markdown):
+      [
+        {
+          "content": "Nội dung câu hỏi...",
+          "max_score": 10,
+          "question_type": "${questionType}",
+          "options": ["A...", "B...", "C...", "D..."] (chỉ nếu là mcq),
+          "correct_index": 0 (chỉ nếu là mcq, index của đáp án đúng),
+          "suggested_skill_tags": ["Tag1", "Tag2"]
+        }
+      ]
+    `;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text()
+      .replace(/```json/g, '') // Clean markdown
+      .replace(/```/g, '')
+      .trim();
+
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("AI Generation Error:", error);
+    return []; // Trả về mảng rỗng nếu lỗi
+  }
+};
+
+module.exports = { 
+  generateRubric,
+  gradeSubmission,
+  analyzeMCQ,
+  generateTestCases,
+  gradeCode,
+  generateQuestionsByTopic };
