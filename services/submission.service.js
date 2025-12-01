@@ -110,4 +110,44 @@ const submitAndGrade = async (payload) => {
   });
 };
 
-module.exports = { submitAndGrade };
+//Giảng viên sửa điểm ---
+const updateDetailScore = async (submission_detail_id, new_score, teacher_note) => {
+  return await sequelize.transaction(async (t) => {
+    // 1. Tìm chi tiết bài làm cần sửa
+    const detail = await SubmissionDetail.findByPk(submission_detail_id, { transaction: t });
+    if (!detail) throw new Error('Không tìm thấy chi tiết bài làm');
+
+    // 2. Cập nhật điểm mới (final_score)
+    // teacher_note có thể lưu nối vào feedback cũ hoặc tạo trường mới tùy bạn
+    // Ở đây mình ví dụ nối vào ai_feedback để đơn giản
+    const updatedFeedback = teacher_note 
+      ? `${detail.ai_feedback || ''}\n\n[GV Chấm lại]: ${teacher_note}` 
+      : detail.ai_feedback;
+
+    await detail.update({
+      final_score: new_score,
+      ai_feedback: updatedFeedback
+    }, { transaction: t });
+
+    // 3. TÍNH LẠI TỔNG ĐIỂM của cả bài Submission (Quan trọng)
+    const submissionId = detail.submission_id;
+    
+    // Lấy tất cả các chi tiết của submission này để cộng lại
+    const allDetails = await SubmissionDetail.findAll({
+      where: { submission_id: submissionId },
+      transaction: t
+    });
+
+    const newTotalScore = allDetails.reduce((sum, d) => sum + (d.final_score || 0), 0);
+
+    // 4. Update tổng điểm vào bảng Submission cha
+    await Submission.update(
+      { score: newTotalScore },
+      { where: { submission_id: submissionId }, transaction: t }
+    );
+
+    return { message: "Cập nhật điểm thành công", new_total_score: newTotalScore };
+  });
+};
+
+module.exports = { submitAndGrade, updateDetailScore };

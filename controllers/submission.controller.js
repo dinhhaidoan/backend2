@@ -12,3 +12,17 @@ exports.submit = async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 };
+
+exports.updateGrade = async (req, res) => {
+  try {
+    const { detail_id } = req.params; // Lấy ID từ URL
+    const { score, note } = req.body; // Lấy điểm mới và ghi chú từ Body
+
+    if (score === undefined) return res.status(400).json({ error: "Thiếu điểm số (score)" });
+
+    const result = await submissionService.updateDetailScore(detail_id, score, note);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
