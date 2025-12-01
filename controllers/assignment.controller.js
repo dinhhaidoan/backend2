@@ -23,13 +23,13 @@ exports.getById = async (req, res) => {
 
 exports.autoCreate = async (req, res) => {
   try {
-    const { course_class_id, topic, difficulty, quantity, type, title } = req.body;
+    const { course_class_id, topic, difficulty, quantity, type, title, mix_options } = req.body;
     
     // Validate cơ bản
     if (!topic || !course_class_id) return res.status(400).json({ error: "Thiếu thông tin bắt buộc" });
 
     const result = await assignmentService.autoGenerateAssignment({ 
-      course_class_id, topic, difficulty, quantity, type, title 
+      course_class_id, topic, difficulty, quantity, type, title, mix_options 
     });
 
     res.status(201).json({ 

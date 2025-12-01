@@ -167,43 +167,75 @@ const gradeCode = async (questionContent, testCases, studentCode, language, maxS
 };
 
 // Hàm tạo bài tập tự động
-const generateQuestionsByTopic = async (topic, difficulty, count, questionType) => {
+const generateQuestionsByTopic = async (topic, difficulty, count, questionType, mixOptions = []) => {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    // Prompt quan trọng: Phải ép AI trả về đúng cấu trúc JSON mà model Question cần
-    const prompt = `
-      Bạn là một giáo viên giỏi. Hãy soạn một bộ đề thi cho sinh viên IT.
-      
-      YÊU CẦU:
-      1. Chủ đề: "${topic}"
-      2. Độ khó: "${difficulty}" (Ví dụ: Cơ bản, Trung bình, Khó)
-      3. Số lượng câu: ${count}
-      4. Loại câu hỏi: "${questionType}" (chỉ chọn 'mcq' hoặc 'essay')
+    // --- LOGIC XỬ LÝ PROMPT LINH HOẠT ---
+    let typeInstruction = "";
+    
+    if (questionType === 'mixed') {
+      // Nếu có gửi danh sách mixOptions (ví dụ: ['code', 'mcq'])
+      if (Array.isArray(mixOptions) && mixOptions.length > 0) {
+        const mapLabels = {
+          'mcq': 'Trắc nghiệm (mcq)',
+          'essay': 'Tự luận (essay)',
+          'code': 'Lập trình (code)'
+        };
+        // Tạo chuỗi mô tả: "Trắc nghiệm (mcq) và Lập trình (code)"
+        const typesText = mixOptions.map(t => mapLabels[t]).filter(Boolean).join(' và ');
+        typeInstruction = `Tạo hỗn hợp các loại câu hỏi chỉ bao gồm: ${typesText}. Hãy phân bổ số lượng hợp lý.`;
+      } else {
+        // Mặc định nếu không gửi mixOptions thì tạo cả 3
+        typeInstruction = "Tạo hỗn hợp đầy đủ các loại câu hỏi: Trắc nghiệm (mcq), Tự luận (essay) và Lập trình (code).";
+      }
+    } else if (questionType === 'code') {
+      typeInstruction = "Chỉ tạo câu hỏi bài tập Lập trình (code).";
+    } else {
+      typeInstruction = `Chỉ tạo câu hỏi loại ${questionType}.`;
+    }
 
-      OUTPUT JSON FORMAT (Bắt buộc, không markdown):
+    const prompt = `
+      Bạn là chuyên gia giáo dục và lập trình viên giỏi. Hãy soạn bộ đề thi theo yêu cầu sau:
+      
+      1. Chủ đề: "${topic}"
+      2. Độ khó: "${difficulty}"
+      3. Tổng số lượng câu: ${count}
+      4. Yêu cầu loại câu hỏi: ${typeInstruction}
+
+      QUAN TRỌNG - FORMAT JSON OUTPUT (Mảng các object):
       [
         {
+          "question_type": "mcq" | "essay" | "code",
           "content": "Nội dung câu hỏi...",
           "max_score": 10,
-          "question_type": "${questionType}",
-          "options": ["A...", "B...", "C...", "D..."] (chỉ nếu là mcq),
-          "correct_index": 0 (chỉ nếu là mcq, index của đáp án đúng),
-          "suggested_skill_tags": ["Tag1", "Tag2"]
+          "suggested_skill_tags": ["Tag1", "Tag2"],
+          "ai_rubric": [ {"criteria": "...", "points": 1} ]
+          // Dữ liệu riêng cho MCQ (nếu type là mcq)
+          "options": ["A...", "B...", "C...", "D..."],
+          "correct_index": 0,
+
+          // Dữ liệu riêng cho CODE (nếu type là code)
+          "code_lang": "javascript", // hoặc ngôn ngữ phù hợp chủ đề
+          "code_test_cases": [
+             { "input": "...", "output": "..." },
+             { "input": "...", "output": "..." }
+          ]
         }
       ]
+      Lưu ý: Chỉ trả về JSON thuần túy, không dùng markdown code block.
     `;
 
     const result = await model.generateContent(prompt);
     const text = result.response.text()
-      .replace(/```json/g, '') // Clean markdown
+      .replace(/```json/g, '')
       .replace(/```/g, '')
       .trim();
 
     return JSON.parse(text);
   } catch (error) {
     console.error("AI Generation Error:", error);
-    return []; // Trả về mảng rỗng nếu lỗi
+    return [];
   }
 };
 
