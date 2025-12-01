@@ -9,9 +9,11 @@ module.exports = async (req, res, next) => {
     const roleName = reqUser && reqUser.Role && (reqUser.Role.role_name || '').toLowerCase();
 
     const isStaff = roleName && (roleName.includes('staff') || roleName.includes('giáo vụ') || roleName.includes('office'));
+    const isTeacher = roleName && (roleName.includes('giảng') || roleName.includes('teacher'));
     const isAdmin = roleName && (roleName.includes('admin') || roleName.includes('quản trị'));
 
-    if (isStaff || isAdmin) return next();
+    // allow staff/admin and teacher
+    if (isStaff || isAdmin || isTeacher) return next();
 
     return res.status(403).json({ error: 'Forbidden' });
   } catch (err) {

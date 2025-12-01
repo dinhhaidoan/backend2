@@ -26,9 +26,17 @@ const Base = require('./base.model')(sequelize, DataTypes);
 const Floor = require('./floor.model')(sequelize, DataTypes);
 const Room = require('./room.model')(sequelize, DataTypes);
 const CourseClass = require('./course_class.model')(sequelize, DataTypes);
+const Lesson = require('./lesson.model')(sequelize, DataTypes);
+const LessonYoutubeLink = require('./lesson_youtube_link.model')(sequelize, DataTypes);
+const LessonDriveLink = require('./lesson_drive_link.model')(sequelize, DataTypes);
+const LessonLink = null; // replaced by two specific models
 const Group = require('./group.model')(sequelize, DataTypes);
 const Enrollment = require('./enrollment.model')(sequelize, DataTypes);
 const Slot = require('./slot.model')(sequelize, DataTypes);
+const Assignment = require('./assignment.model')(sequelize, DataTypes);
+const Question = require('./question.model')(sequelize, DataTypes);
+const Submission = require('./submission.model')(sequelize, DataTypes);
+const SubmissionDetail = require('./submission_detail.model')(sequelize, DataTypes);
 // Course schedule models removed
 
 // -------------------- Associations --------------------
@@ -101,6 +109,16 @@ Base.hasMany(CourseClass, { foreignKey: 'base_id' });
 CourseClass.belongsTo(Floor, { foreignKey: 'floor_id' });
 Floor.hasMany(CourseClass, { foreignKey: 'floor_id' });
 
+// Lesson relations: one course class has many lessons
+Lesson.belongsTo(CourseClass, { foreignKey: 'course_class_id' });
+CourseClass.hasMany(Lesson, { foreignKey: 'course_class_id' });
+
+// Lesson - LessonLink relations: a lesson has many links
+LessonYoutubeLink.belongsTo(Lesson, { foreignKey: 'lesson_id' });
+Lesson.hasMany(LessonYoutubeLink, { foreignKey: 'lesson_id' });
+LessonDriveLink.belongsTo(Lesson, { foreignKey: 'lesson_id' });
+Lesson.hasMany(LessonDriveLink, { foreignKey: 'lesson_id' });
+
 // Course <-> Major (many-to-many)
 Course.belongsToMany(Major, { through: { model: CourseMajor, unique: 'uniq_cm' }, foreignKey: 'course_id', otherKey: 'major_id' });
 Major.belongsToMany(Course, { through: { model: CourseMajor, unique: 'uniq_cm' }, foreignKey: 'major_id', otherKey: 'course_id' });
@@ -156,7 +174,29 @@ CourseClass.hasMany(Enrollment, { foreignKey: 'course_class_id' });
 Enrollment.belongsTo(Group, { foreignKey: 'group_id' });
 Group.hasMany(Enrollment, { foreignKey: 'group_id' });
 
-// Course schedule models & associations removed
+// Assignment thuộc về CourseClass
+Assignment.belongsTo(CourseClass, { foreignKey: 'course_class_id' });
+CourseClass.hasMany(Assignment, { foreignKey: 'course_class_id' });
+
+// Assignment có nhiều Question
+Assignment.hasMany(Question, { foreignKey: 'assignment_id', onDelete: 'CASCADE' });
+Question.belongsTo(Assignment, { foreignKey: 'assignment_id' });
+
+// Submission liên kết Assignment và Student
+Submission.belongsTo(Assignment, { foreignKey: 'assignment_id' });
+Assignment.hasMany(Submission, { foreignKey: 'assignment_id' });
+
+Submission.belongsTo(Student, { foreignKey: 'student_id' });
+Student.hasMany(Submission, { foreignKey: 'student_id' });
+
+// Submission có nhiều SubmissionDetail
+Submission.hasMany(SubmissionDetail, { foreignKey: 'submission_id' });
+SubmissionDetail.belongsTo(Submission, { foreignKey: 'submission_id' });
+
+// SubmissionDetail thuộc về 1 câu hỏi
+SubmissionDetail.belongsTo(Question, { foreignKey: 'question_id' });
+Question.hasMany(SubmissionDetail, { foreignKey: 'question_id' });
+
 
 // messages model removed as chat feature no longer used
 const initDb = async () => {
@@ -243,6 +283,9 @@ const models = {
   Base,
   Floor,
   Room,
+  Assignment,
+  Question,
+  Submission,
   NoteCategory,
   NoteTag,
   NoteTagMap,
@@ -255,6 +298,10 @@ const models = {
   Enrollment,
   Slot,
   // Course schedule models removed
+  Lesson,
+  LessonYoutubeLink,
+  LessonDriveLink,
+  SubmissionDetail,
 };
 
 module.exports = { sequelize, models, initDb };

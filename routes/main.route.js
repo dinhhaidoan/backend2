@@ -13,8 +13,11 @@ const enrollmentRoute = require('./enrollment.route');
 const baseRoute = require('./base.route');
 const floorRoute = require('./floor.route');
 const roomRoute = require('./room.route');
-// Course schedule routes removed per requirement
+const lessonRoute = require('./lesson.route');
 const parentStudentRoute = require('./parent_student.route');
+const assignmentRoute = require('./assignment.route');
+const submissionRoute = require('./submission.route');
+const analyticsRoute = require('./analytics.route');
 
 
 router.use('/share/auth', authRoute);
@@ -29,7 +32,10 @@ router.use('/share/enrollments', enrollmentRoute);
 router.use('/share/bases', baseRoute);
 router.use('/share/floors', floorRoute);
 router.use('/share/rooms', roomRoute);
-// course-schedules removed
+router.use('/share/lessons', lessonRoute);
 router.use('/share/parents', parentStudentRoute);
+router.use('/share/assignments', assignmentRoute);
+router.use('/share/submissions', submissionRoute);
+router.use('/share/analytics', analyticsRoute);
 
 module.exports = router;
