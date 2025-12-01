@@ -17,6 +17,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    due_date: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     type: {
       type: DataTypes.ENUM('essay', 'mcq', 'code', 'mixed'),
       defaultValue: 'essay',

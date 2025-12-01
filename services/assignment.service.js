@@ -1,9 +1,9 @@
 const { sequelize, models } = require('../models/index.model');
-const { Assignment, Question } = models;
+const { Assignment, Question, Submission, SubmissionDetail } = models;
 const { generateRubric, analyzeMCQ, generateTestCases,generateQuestionsByTopic } = require('./ai.service');
 
 const createAssignmentWithQuestions = async (data) => {
-  const { course_class_id, title, description, questions } = data;
+  const { course_class_id, title, description, due_date, questions } = data;
 
   return await sequelize.transaction(async (t) => {
     // 1. Tạo Assignment
@@ -11,6 +11,7 @@ const createAssignmentWithQuestions = async (data) => {
       course_class_id,
       title,
       description,
+      due_date,
       status: 'published'
     }, { transaction: t });
 
@@ -86,7 +87,7 @@ const getAssignmentDetails = async (id) => {
   });
 };
 
-const autoGenerateAssignment = async ({ course_class_id, topic, difficulty, quantity, type, title, mix_options }) => {
+const autoGenerateAssignment = async ({ course_class_id, topic, difficulty, quantity, type, title, mix_options, due_date }) => {
   return await sequelize.transaction(async (t) => {
     // 1. Gọi AI sinh câu hỏi (truyền 'mixed' nếu muốn hỗn hợp)
     const questionsData = await generateQuestionsByTopic(topic, difficulty, quantity, type, mix_options);
@@ -100,6 +101,7 @@ const autoGenerateAssignment = async ({ course_class_id, topic, difficulty, quan
       course_class_id,
       title: title || `Bài tập: ${topic}`,
       description: `Tự động tạo bởi AI (${type}). Chủ đề: ${topic}, Độ khó: ${difficulty}`,
+      due_date,
       status: 'draft',
       type: type // Lưu loại assignment là mixed, code, hay mcq
     }, { transaction: t });
@@ -134,4 +136,49 @@ const autoGenerateAssignment = async ({ course_class_id, topic, difficulty, quan
   });
 };
 
-module.exports = { createAssignmentWithQuestions, getAssignmentDetails, autoGenerateAssignment };
+const getAllAssignments = async (filters) => {
+  const where = {};
+  if (filters.course_class_id) {
+    where.course_class_id = filters.course_class_id;
+  }
+  return await Assignment.findAll({
+    where,
+    order: [['createdAt', 'DESC']]
+  });
+};
+
+const deleteAssignment = async (id) => {
+  const assignment = await Assignment.findByPk(id);
+  if (!assignment) {
+    throw new Error('Assignment not found');
+  }
+
+  await sequelize.transaction(async (t) => {
+    // 1. Tìm các submission liên quan
+    const submissions = await Submission.findAll({
+      where: { assignment_id: id },
+      attributes: ['submission_id'],
+      transaction: t
+    });
+    const submissionIds = submissions.map(s => s.submission_id);
+
+    // 2. Xóa SubmissionDetail và Submission nếu có
+    if (submissionIds.length > 0) {
+      await SubmissionDetail.destroy({
+        where: { submission_id: submissionIds },
+        transaction: t
+      });
+      await Submission.destroy({
+        where: { assignment_id: id },
+        transaction: t
+      });
+    }
+
+    // 3. Xóa Assignment (Question sẽ được xóa theo cascade nếu có cấu hình)
+    await assignment.destroy({ transaction: t });
+  });
+
+  return { message: 'Assignment deleted successfully' };
+};
+
+module.exports = { createAssignmentWithQuestions, getAssignmentDetails, autoGenerateAssignment, getAllAssignments, deleteAssignment };

@@ -19,17 +19,38 @@ exports.getById = async (req, res) => {
   }
 };
 
+exports.getAll = async (req, res) => {
+  try {
+    const filters = {
+      course_class_id: req.query.course_class_id
+    };
+    const result = await assignmentService.getAllAssignments(filters);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+exports.delete = async (req, res) => {
+  try {
+    await assignmentService.deleteAssignment(req.params.id);
+    res.json({ message: 'Assignment deleted successfully' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
 // controllers/assignment.controller.js
 
 exports.autoCreate = async (req, res) => {
   try {
-    const { course_class_id, topic, difficulty, quantity, type, title, mix_options } = req.body;
+    const { course_class_id, topic, difficulty, quantity, type, title, mix_options, due_date } = req.body;
     
     // Validate cơ bản
     if (!topic || !course_class_id) return res.status(400).json({ error: "Thiếu thông tin bắt buộc" });
 
     const result = await assignmentService.autoGenerateAssignment({ 
-      course_class_id, topic, difficulty, quantity, type, title, mix_options 
+      course_class_id, topic, difficulty, quantity, type, title, mix_options, due_date 
     });
 
     res.status(201).json({ 
