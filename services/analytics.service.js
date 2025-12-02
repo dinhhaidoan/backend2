@@ -19,6 +19,18 @@ const getStudentAnalytics = async (student_id) => {
     order: [[Submission, 'submitted_at', 'DESC']] // Lấy bài mới nhất trước
   });
 
+  // Nếu chưa có dữ liệu, trả về mặc định
+  if (!details || details.length === 0) {
+    return {
+      totalSubmissions: 0,
+      avgScore: 0,
+      strongestSkill: "N/A",
+      weakestSkill: "N/A",
+      skillBreakdown: {},
+      commonErrors: []
+    };
+  }
+
   const skillStats = {}; // { "OOP": { earned: 8, total: 10, count: 2 }, ... }
   const errorCounts = {}; // { "Sai cú pháp": 5, ... }
 
@@ -74,7 +86,7 @@ const getStudentAnalytics = async (student_id) => {
   });
 
   // Tính điểm trung bình tổng thể
-  const avgScore = details.length === 0 ? 0 : Math.round((totalEarned / totalMax) * 10 * 10) / 10;
+  const avgScore = totalMax === 0 ? 0 : Math.round((totalEarned / totalMax) * 10 * 10) / 10;
 
   // Tìm skill mạnh nhất và yếu nhất
   let strongestSkill = null;
@@ -83,7 +95,7 @@ const getStudentAnalytics = async (student_id) => {
   let lowestAvg = Infinity;
 
   Object.entries(skillBreakdown).forEach(([skill, data]) => {
-    const percentage = (data.avgScore / data.maxScore) * 100;
+    const percentage = data.maxScore === 0 ? 0 : (data.avgScore / data.maxScore) * 100;
     if (percentage > highestAvg) {
       highestAvg = percentage;
       strongestSkill = skill;
