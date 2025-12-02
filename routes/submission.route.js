@@ -14,4 +14,7 @@ router.post('/', submissionController.submit);
 // PATCH /api/share/submissions/details/:detail_id - Sửa điểm
 router.patch('/details/:detail_id', submissionController.updateGrade);
 
+// PATCH /api/share/submissions/:id - Cập nhật điểm submission
+router.patch('/:id', submissionController.updateSubmission);
+
 module.exports = router;

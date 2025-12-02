@@ -83,7 +83,21 @@ const createAssignmentWithQuestions = async (data) => {
 const getAssignmentDetails = async (id) => {
   return await Assignment.findOne({
     where: { assignment_id: id },
-    include: [{ model: Question }]
+    include: [{
+      model: Question,
+      attributes: [
+        'question_id',
+        'content',
+        'question_type',
+        'max_score',
+        'mcq_options',
+        'mcq_correct_index',
+        'code_lang',
+        'code_test_cases',
+        'ai_rubric',
+        'skill_tags'
+      ]
+    }]
   });
 };
 
@@ -205,20 +219,93 @@ const updateAssignment = async (id, data) => {
 };
 
 const getAssignmentSubmissions = async (assignment_id) => {
+  const { Student, User } = models;
+  
   const assignment = await Assignment.findByPk(assignment_id);
   if (!assignment) {
     throw new Error('Assignment not found');
   }
 
-  return await Submission.findAll({
+  const submissions = await Submission.findAll({
     where: { assignment_id },
     include: [
       {
         model: SubmissionDetail,
-        include: [{ model: Question }]
+        include: [{
+          model: Question,
+          attributes: [
+            'question_id',
+            'content',
+            'question_type',
+            'max_score',
+            'mcq_options',
+            'mcq_correct_index',
+            'code_lang',
+            'code_test_cases',
+            'ai_rubric',
+            'skill_tags'
+          ]
+        }]
+      },
+      {
+        model: Student,
+        attributes: ['student_id', 'student_name'],
+        include: [{
+          model: User,
+          attributes: ['user_avatar']
+        }]
       }
     ],
     order: [['submitted_at', 'DESC']]
+  });
+
+  // Lọc chỉ lấy submission mới nhất của mỗi sinh viên
+  const latestSubmissions = {};
+  submissions.forEach(sub => {
+    const studentId = sub.student_id;
+    if (!latestSubmissions[studentId] || 
+        new Date(sub.submitted_at) > new Date(latestSubmissions[studentId].submitted_at)) {
+      latestSubmissions[studentId] = sub;
+    }
+  });
+
+  // Transform data to match frontend expectations
+  return Object.values(latestSubmissions).map(sub => {
+    const details = sub.SubmissionDetails || [];
+    
+    // Create answers object indexed by question order
+    const answers = {};
+    details.forEach((detail, idx) => {
+      // MCQ: Store selected_option_index
+      if (detail.selected_option_index !== null && detail.selected_option_index !== undefined) {
+        answers[idx] = detail.selected_option_index;
+      } 
+      // Essay/Code: Store student_answer text
+      else if (detail.student_answer) {
+        answers[idx] = detail.student_answer;
+      }
+    });
+
+    return {
+      id: sub.submission_id,
+      studentId: sub.student_id,
+      studentName: sub.Student?.student_name || 'Unknown',
+      avatar: sub.Student?.User?.user_avatar || null,
+      score: sub.score,
+      submittedAt: sub.submitted_at,
+      feedback: sub.feedback,
+      answers,
+      details: details.map(d => ({
+        detailId: d.submission_detail_id,
+        questionId: d.question_id,
+        answer: d.student_answer,
+        selectedIndex: d.selected_option_index,
+        aiScore: d.ai_score,
+        aiFeedback: d.ai_feedback,
+        aiErrorTags: d.ai_error_tags,
+        finalScore: d.final_score
+      }))
+    };
   });
 };
 

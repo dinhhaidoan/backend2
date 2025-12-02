@@ -48,3 +48,16 @@ exports.updateGrade = async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 };
+
+exports.updateSubmission = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { score, feedback } = req.body;
+    
+    const result = await submissionService.updateSubmission(id, score, feedback);
+    res.json({ message: 'Cập nhật điểm thành công', result });
+  } catch (err) {
+    console.error(err);
+    res.status(400).json({ error: err.message });
+  }
+};

@@ -192,4 +192,19 @@ const getSubmissionById = async (id) => {
   return submission;
 };
 
-module.exports = { submitAndGrade, updateDetailScore, getAllSubmissions, getSubmissionById };
+const updateSubmission = async (submission_id, score, feedback) => {
+  const submission = await Submission.findByPk(submission_id);
+  
+  if (!submission) {
+    throw new Error('Submission not found');
+  }
+  
+  await submission.update({
+    score,
+    feedback
+  });
+  
+  return submission;
+};
+
+module.exports = { submitAndGrade, updateDetailScore, getAllSubmissions, getSubmissionById, updateSubmission };
