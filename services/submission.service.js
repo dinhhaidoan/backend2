@@ -150,4 +150,46 @@ const updateDetailScore = async (submission_detail_id, new_score, teacher_note) 
   });
 };
 
-module.exports = { submitAndGrade, updateDetailScore };
+const getAllSubmissions = async (filters) => {
+  const where = {};
+  
+  if (filters.student_id) {
+    where.student_id = filters.student_id;
+  }
+  if (filters.assignment_id) {
+    where.assignment_id = filters.assignment_id;
+  }
+
+  return await Submission.findAll({
+    where,
+    include: [
+      {
+        model: SubmissionDetail,
+        include: [{ model: Question }]
+      },
+      { model: Assignment }
+    ],
+    order: [['submitted_at', 'DESC']]
+  });
+};
+
+const getSubmissionById = async (id) => {
+  const submission = await Submission.findOne({
+    where: { submission_id: id },
+    include: [
+      {
+        model: SubmissionDetail,
+        include: [{ model: Question }]
+      },
+      { model: Assignment }
+    ]
+  });
+
+  if (!submission) {
+    throw new Error('Submission not found');
+  }
+
+  return submission;
+};
+
+module.exports = { submitAndGrade, updateDetailScore, getAllSubmissions, getSubmissionById };

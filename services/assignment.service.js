@@ -147,6 +147,7 @@ const getAllAssignments = async (filters) => {
   }
   return await Assignment.findAll({
     where,
+    include: [{ model: Question }],
     order: [['createdAt', 'DESC']]
   });
 };
@@ -203,4 +204,22 @@ const updateAssignment = async (id, data) => {
   return assignment;
 };
 
-module.exports = { createAssignmentWithQuestions, getAssignmentDetails, autoGenerateAssignment, getAllAssignments, deleteAssignment, updateAssignment };
+const getAssignmentSubmissions = async (assignment_id) => {
+  const assignment = await Assignment.findByPk(assignment_id);
+  if (!assignment) {
+    throw new Error('Assignment not found');
+  }
+
+  return await Submission.findAll({
+    where: { assignment_id },
+    include: [
+      {
+        model: SubmissionDetail,
+        include: [{ model: Question }]
+      }
+    ],
+    order: [['submitted_at', 'DESC']]
+  });
+};
+
+module.exports = { createAssignmentWithQuestions, getAssignmentDetails, autoGenerateAssignment, getAllAssignments, deleteAssignment, updateAssignment, getAssignmentSubmissions };

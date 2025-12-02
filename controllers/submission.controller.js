@@ -13,6 +13,28 @@ exports.submit = async (req, res) => {
   }
 };
 
+exports.getAll = async (req, res) => {
+  try {
+    const filters = {
+      student_id: req.query.student_id,
+      assignment_id: req.query.assignment_id
+    };
+    const result = await submissionService.getAllSubmissions(filters);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+exports.getById = async (req, res) => {
+  try {
+    const result = await submissionService.getSubmissionById(req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
 exports.updateGrade = async (req, res) => {
   try {
     const { detail_id } = req.params; // Lấy ID từ URL

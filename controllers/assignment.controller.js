@@ -49,6 +49,15 @@ exports.update = async (req, res) => {
   }
 };
 
+exports.getSubmissions = async (req, res) => {
+  try {
+    const result = await assignmentService.getAssignmentSubmissions(req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
 // controllers/assignment.controller.js
 
 exports.autoCreate = async (req, res) => {
