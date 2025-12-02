@@ -77,7 +77,7 @@ const createAccountWithProfile = async ({ user: userData, role_name, role_id, pr
 
     const hashed = await hashPassword(userData.user_password);
     // allowed user fields to persist
-    const allowedUserFields = ['user_code', 'user_email', 'user_password', 'user_phone', 'user_avatar', 'is_active'];
+    const allowedUserFields = ['user_code', 'user_email', 'user_password', 'user_phone', 'user_avatar', 'user_description', 'is_active'];
     const userToCreate = pick(userData, allowedUserFields);
     userToCreate.user_password = hashed;
     userToCreate.role_id = role.role_id;
@@ -237,7 +237,7 @@ const updateUser = async (user_code, payload = {}) => {
     const { user: userData = {}, role_id: newRoleId, role_name: newRoleName, profile: profileData = {} } = payload;
 
     // Update user fields
-    const allowedUserFields = ['user_code', 'user_email', 'user_password', 'user_phone', 'user_avatar', 'is_active', 'last_login'];
+    const allowedUserFields = ['user_code', 'user_email', 'user_password', 'user_phone', 'user_avatar', 'user_description', 'is_active', 'last_login'];
     const userToUpdate = pick(userData, allowedUserFields);
     if (userToUpdate.user_password) {
       userToUpdate.user_password = await hashPassword(userToUpdate.user_password);
@@ -608,3 +608,26 @@ const deleteUser = async (user_code) => {
 
 // export deleteUser
 module.exports.deleteUser = deleteUser;
+
+const changePassword = async (userId, { currentPassword, newPassword }) => {
+  if (!currentPassword || !newPassword) {
+    throw new Error('Vui lòng cung cấp mật khẩu hiện tại và mật khẩu mới');
+  }
+
+  const user = await User.findOne({ where: { user_id: userId } });
+  if (!user) throw new Error('Người dùng không tồn tại');
+
+  // Verify current password
+  const isValid = await comparePassword(currentPassword, user.user_password);
+  if (!isValid) throw new Error('Mật khẩu hiện tại không chính xác');
+
+  // Hash new password
+  const hashedPassword = await hashPassword(newPassword);
+  
+  // Update password
+  await user.update({ user_password: hashedPassword });
+
+  return { message: 'Đổi mật khẩu thành công' };
+};
+
+module.exports.changePassword = changePassword;

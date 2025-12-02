@@ -53,39 +53,60 @@ const getStudentAnalytics = async (student_id) => {
     }
   });
 
-  // 3. Chuẩn hóa dữ liệu Skill để trả về Frontend (dạng mảng cho dễ vẽ biểu đồ)
-  // Công thức: Mastery % = (Điểm đạt / Tổng điểm tối đa) * 100
-  const skillsAnalysis = Object.keys(skillStats).map(skill => {
+  // 3. Chuẩn hóa dữ liệu Skill để trả về Frontend
+  const skillBreakdown = {};
+  let totalEarned = 0;
+  let totalMax = 0;
+  
+  Object.keys(skillStats).forEach(skill => {
     const stat = skillStats[skill];
-    const mastery = stat.total === 0 ? 0 : Math.round((stat.earned / stat.total) * 100);
+    const avgScore = stat.total === 0 ? 0 : (stat.earned / stat.question_count);
+    const maxPossible = stat.total === 0 ? 10 : (stat.total / stat.question_count);
     
-    // Đánh giá sơ bộ
-    let level = 'Yếu';
-    if (mastery >= 80) level = 'Giỏi';
-    else if (mastery >= 50) level = 'Khá';
-
-    return {
-      skill_name: skill,
-      mastery_percentage: mastery, // 0 - 100
-      level,
-      questions_attempted: stat.question_count
+    skillBreakdown[skill] = {
+      avgScore: Math.round(avgScore * 10) / 10, // Round to 1 decimal
+      maxScore: Math.round(maxPossible * 10) / 10,
+      count: stat.question_count
     };
+    
+    totalEarned += stat.earned;
+    totalMax += stat.total;
   });
 
-  // 4. Lấy Top 5 lỗi thường gặp nhất
-  const topErrors = Object.entries(errorCounts)
-    .sort((a, b) => b[1] - a[1]) // Sắp xếp giảm dần theo số lần gặp
+  // Tính điểm trung bình tổng thể
+  const avgScore = details.length === 0 ? 0 : Math.round((totalEarned / totalMax) * 10 * 10) / 10;
+
+  // Tìm skill mạnh nhất và yếu nhất
+  let strongestSkill = null;
+  let weakestSkill = null;
+  let highestAvg = -1;
+  let lowestAvg = Infinity;
+
+  Object.entries(skillBreakdown).forEach(([skill, data]) => {
+    const percentage = (data.avgScore / data.maxScore) * 100;
+    if (percentage > highestAvg) {
+      highestAvg = percentage;
+      strongestSkill = skill;
+    }
+    if (percentage < lowestAvg) {
+      lowestAvg = percentage;
+      weakestSkill = skill;
+    }
+  });
+
+  // 4. Lấy Top 5 lỗi thường gặp nhất (format theo yêu cầu frontend)
+  const commonErrors = Object.entries(errorCounts)
+    .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(([err, count]) => ({ error: err, count }));
+    .map(([tag, count]) => ({ tag, count }));
 
   return {
-    student_id,
-    total_submissions: details.length,
-    skills_radar: skillsAnalysis, // Dùng để vẽ biểu đồ Radar/Cột
-    common_mistakes: topErrors,   // Dùng để hiển thị danh sách cảnh báo
-    recommendation: skillsAnalysis.length > 0 
-      ? `Bạn cần ôn tập thêm về: ${skillsAnalysis.filter(s => s.mastery_percentage < 65).map(s => s.skill_name).join(', ')}`
-      : "Chưa có đủ dữ liệu để đánh giá."
+    totalSubmissions: details.length,
+    avgScore: avgScore || 0,
+    strongestSkill: strongestSkill || "N/A",
+    weakestSkill: weakestSkill || "N/A",
+    skillBreakdown,
+    commonErrors
   };
 };
 

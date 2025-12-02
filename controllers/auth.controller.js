@@ -218,3 +218,16 @@ exports.getTeacherByCode = async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 };
+
+exports.changePassword = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { changePassword } = require('../services/auth.service');
+    const result = await changePassword(userId, req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};

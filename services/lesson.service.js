@@ -1,5 +1,5 @@
 const { sequelize, models } = require('../models/index.model');
-const { Lesson, LessonYoutubeLink, LessonDriveLink, CourseClass } = models;
+const { Lesson, LessonYoutubeLink, LessonDriveLink, CourseClass, Course } = models;
 const { Op } = require('sequelize');
 
 const validLinkTypes = ['youtube', 'drive'];
@@ -14,13 +14,45 @@ const listLessons = async ({ page = 1, limit = 20, course_class_id, q = '', stat
     where[Op.or] = [{ lesson_title: { [Op.like]: s } }, { lesson_description: { [Op.like]: s } }];
   }
 
-  const rows = await Lesson.findAndCountAll({ where, limit: Number(limit), offset, include: [LessonYoutubeLink, LessonDriveLink], order: [['lesson_date', 'DESC']], distinct: true });
+  const rows = await Lesson.findAndCountAll({ 
+    where, 
+    limit: Number(limit), 
+    offset, 
+    include: [
+      LessonYoutubeLink, 
+      LessonDriveLink,
+      {
+        model: CourseClass,
+        attributes: ['course_class_id', 'course_class_SKU', 'course_name_vn'],
+        include: [{
+          model: Course,
+          attributes: ['course_id', 'course_name_vn', 'course_name_en', 'course_SKU']
+        }]
+      }
+    ], 
+    order: [['lesson_date', 'DESC']], 
+    distinct: true 
+  });
   return { items: rows.rows, total: rows.count, page: Number(page), limit: Number(limit), lastPage: Math.ceil(rows.count / Number(limit) || 1) };
 };
 
 const getLesson = async (id) => {
   if (!id) throw new Error('Missing lesson_id');
-  const row = await Lesson.findOne({ where: { lesson_id: id }, include: [LessonYoutubeLink, LessonDriveLink] });
+  const row = await Lesson.findOne({ 
+    where: { lesson_id: id }, 
+    include: [
+      LessonYoutubeLink, 
+      LessonDriveLink,
+      {
+        model: CourseClass,
+        attributes: ['course_class_id', 'course_class_SKU', 'course_name_vn'],
+        include: [{
+          model: Course,
+          attributes: ['course_id', 'course_name_vn', 'course_name_en', 'course_SKU']
+        }]
+      }
+    ] 
+  });
   if (!row) throw new Error('Lesson not found');
   return row;
 };

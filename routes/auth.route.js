@@ -7,6 +7,7 @@ const { validateLogin, validateRegister } = require('../middleware/validateAuth'
 
 router.post('/login', validateLogin, authController.login);
 router.post('/logout', authController.logout);
+router.post('/change-password', authMiddleware, authController.changePassword);
 router.get('/me', authMiddleware, authController.me);
 router.post('/register', validateRegister, authController.register);
 router.post('/users', authController.register);

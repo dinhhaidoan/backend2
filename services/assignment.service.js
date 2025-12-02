@@ -81,23 +81,34 @@ const createAssignmentWithQuestions = async (data) => {
 };
 
 const getAssignmentDetails = async (id) => {
+  const { CourseClass, Course } = models;
   return await Assignment.findOne({
     where: { assignment_id: id },
-    include: [{
-      model: Question,
-      attributes: [
-        'question_id',
-        'content',
-        'question_type',
-        'max_score',
-        'mcq_options',
-        'mcq_correct_index',
-        'code_lang',
-        'code_test_cases',
-        'ai_rubric',
-        'skill_tags'
-      ]
-    }]
+    include: [
+      {
+        model: Question,
+        attributes: [
+          'question_id',
+          'content',
+          'question_type',
+          'max_score',
+          'mcq_options',
+          'mcq_correct_index',
+          'code_lang',
+          'code_test_cases',
+          'ai_rubric',
+          'skill_tags'
+        ]
+      },
+      {
+        model: CourseClass,
+        attributes: ['course_class_id', 'course_class_SKU', 'course_name_vn'],
+        include: [{
+          model: Course,
+          attributes: ['course_id', 'course_name_vn', 'course_name_en', 'course_SKU']
+        }]
+      }
+    ]
   });
 };
 
@@ -155,13 +166,24 @@ const autoGenerateAssignment = async ({ course_class_id, topic, difficulty, quan
 };
 
 const getAllAssignments = async (filters) => {
+  const { CourseClass, Course } = models;
   const where = {};
   if (filters.course_class_id) {
     where.course_class_id = filters.course_class_id;
   }
   return await Assignment.findAll({
     where,
-    include: [{ model: Question }],
+    include: [
+      { model: Question },
+      {
+        model: CourseClass,
+        attributes: ['course_class_id', 'course_class_SKU', 'course_name_vn'],
+        include: [{
+          model: Course,
+          attributes: ['course_id', 'course_name_vn', 'course_name_en', 'course_SKU']
+        }]
+      }
+    ],
     order: [['createdAt', 'DESC']]
   });
 };
@@ -201,19 +223,32 @@ const deleteAssignment = async (id) => {
 };
 
 const updateAssignment = async (id, data) => {
-  const { title, description, due_date, status } = data;
+  const { title, description, due_date, status, questions } = data;
   const assignment = await Assignment.findByPk(id);
   
   if (!assignment) {
     throw new Error('Assignment not found');
   }
 
+  // Update basic assignment fields
   await assignment.update({
     title,
     description,
     due_date,
     status
   });
+
+  // Update questions if provided
+  if (questions && Array.isArray(questions)) {
+    for (const questionData of questions) {
+      if (questionData.question_id && questionData.max_score !== undefined) {
+        await Question.update(
+          { max_score: questionData.max_score },
+          { where: { question_id: questionData.question_id, assignment_id: id } }
+        );
+      }
+    }
+  }
 
   return assignment;
 };
