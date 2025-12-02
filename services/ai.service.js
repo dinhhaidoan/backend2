@@ -239,10 +239,44 @@ const generateQuestionsByTopic = async (topic, difficulty, count, questionType, 
   }
 };
 
+// --- Hàm Chat với AI (Conversational) ---
+const chatWithAI = async (userMessage, history = []) => {
+  try {
+    // Sử dụng model gemini-2.0-flash như các hàm khác
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    // Map history từ FE (thường là { role: 'user'/'assistant', content: '...' }) 
+    // sang format của Gemini ({ role: 'user'/'model', parts: [{ text: '...' }] })
+    const formattedHistory = history.map(msg => ({
+      role: (msg.role === 'assistant' || msg.role === 'model') ? 'model' : 'user',
+      parts: [{ text: msg.content || msg.text || "" }]
+    }));
+
+    const chat = model.startChat({
+      history: formattedHistory,
+      generationConfig: {
+        maxOutputTokens: 2000,
+      },
+    });
+
+    const result = await chat.sendMessage(userMessage);
+    const response = await result.response;
+    return response.text();
+  } catch (error) {
+    console.error("AI Chat Error:", error);
+    if (error.status === 429) {
+      throw new Error("Hệ thống đang quá tải (Rate Limit), vui lòng thử lại sau.");
+    }
+    throw new Error("Không thể phản hồi tin nhắn lúc này.");
+  }
+};
+
 module.exports = { 
   generateRubric,
   gradeSubmission,
   analyzeMCQ,
   generateTestCases,
   gradeCode,
-  generateQuestionsByTopic };
+  generateQuestionsByTopic,
+  chatWithAI
+};

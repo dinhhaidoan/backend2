@@ -18,6 +18,7 @@ const parentStudentRoute = require('./parent_student.route');
 const assignmentRoute = require('./assignment.route');
 const submissionRoute = require('./submission.route');
 const analyticsRoute = require('./analytics.route');
+const aiChatRoute = require('./ai_chat.route');
 
 
 router.use('/share/auth', authRoute);
@@ -37,5 +38,6 @@ router.use('/share/parents', parentStudentRoute);
 router.use('/share/assignments', assignmentRoute);
 router.use('/share/submissions', submissionRoute);
 router.use('/share/analytics', analyticsRoute);
+router.use('/share/ai', aiChatRoute);
 
 module.exports = router;
