@@ -1,8 +1,8 @@
 const { sequelize, models } = require('../models/index.model');
-const { CourseClass, Course, Teacher, Semester, Base, Floor, Room } = models;
+const { CourseClass, Course, Teacher, User, Semester, Base, Floor, Room } = models;
 const { Op } = require('sequelize');
 
-const listCourseClasses = async ({ page = 1, limit = 20, q = '', status, teacher_id, teacher_code } = {}) => {
+const listCourseClasses = async ({ page = 1, limit = 20, q = '', status, teacher_id, teacher_code, semester_id, course_id } = {}) => {
   const offset = Math.max(0, (Number(page) - 1)) * Number(limit);
   const where = {};
   if (q && q.trim()) {
@@ -15,6 +15,16 @@ const listCourseClasses = async ({ page = 1, limit = 20, q = '', status, teacher
   if (status && String(status).trim()) {
     const allowed = ['open', 'teaching', 'closed'];
     if (allowed.includes(String(status))) where.status = String(status);
+  }
+
+  // Filter by semester_id
+  if (semester_id !== undefined && semester_id !== null && String(semester_id).trim() !== '') {
+    where.semester_id = Number(semester_id);
+  }
+
+  // Filter by course_id
+  if (course_id !== undefined && course_id !== null && String(course_id).trim() !== '') {
+    where.course_id = Number(course_id);
   }
 
   // Filter by teacher: prefer teacher_id directly; if only teacher_code provided, resolve it
@@ -32,7 +42,14 @@ const listCourseClasses = async ({ page = 1, limit = 20, q = '', status, teacher
 
   const result = await CourseClass.findAndCountAll({
     where,
-    include: [ { model: Course }, { model: Semester }, { model: Teacher }, { model: Base }, { model: Floor }, { model: Room } ],
+    include: [ 
+      { model: Course }, 
+      { model: Semester }, 
+      { model: Teacher, include: [{ model: User }] }, 
+      { model: Base }, 
+      { model: Floor }, 
+      { model: Room } 
+    ],
     limit: Number(limit),
     offset,
     order: [['course_class_id', 'DESC']],
@@ -50,7 +67,17 @@ const listCourseClasses = async ({ page = 1, limit = 20, q = '', status, teacher
 
 const getCourseClass = async (id) => {
   if (!id) throw new Error('Missing course_class_id');
-  const row = await CourseClass.findOne({ where: { course_class_id: id }, include: [ { model: Course }, { model: Semester }, { model: Teacher }, { model: Base }, { model: Floor }, { model: Room } ] });
+  const row = await CourseClass.findOne({ 
+    where: { course_class_id: id }, 
+    include: [ 
+      { model: Course }, 
+      { model: Semester }, 
+      { model: Teacher, include: [{ model: User }] }, 
+      { model: Base }, 
+      { model: Floor }, 
+      { model: Room } 
+    ] 
+  });
   if (!row) throw new Error('CourseClass not found');
   return row;
 };

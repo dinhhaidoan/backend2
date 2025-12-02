@@ -9,8 +9,8 @@ const hasManagePermission = (roleName) => {
 
 exports.list = async (req, res) => {
   try {
-    const { page = 1, limit = 20, q = '', status, teacher_id, teacher_code } = req.query;
-    const result = await listCourseClasses({ page, limit, q, status, teacher_id, teacher_code });
+    const { page = 1, limit = 20, q = '', status, teacher_id, teacher_code, semester_id, course_id } = req.query;
+    const result = await listCourseClasses({ page, limit, q, status, teacher_id, teacher_code, semester_id, course_id });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -111,6 +111,7 @@ const autoGenerateAssignment = async ({ course_class_id, topic, difficulty, quan
       // Xác định các trường tùy theo loại câu hỏi mà AI trả về
       const isMCQ = q.question_type === 'mcq';
       const isCode = q.question_type === 'code';
+      const isEssay = q.question_type === 'essay';
 
       return {
         assignment_id: newAssignment.assignment_id,
@@ -119,6 +120,9 @@ const autoGenerateAssignment = async ({ course_class_id, topic, difficulty, quan
         max_score: q.max_score || 10,
         skill_tags: q.suggested_skill_tags,
         
+        // Lưu Rubric nếu là Essay
+        ai_rubric: isEssay ? q.ai_rubric : null,
+
         // Chỉ lưu nếu là MCQ
         mcq_options: isMCQ ? q.options : null,
         mcq_correct_index: isMCQ ? q.correct_index : null,
@@ -181,4 +185,22 @@ const deleteAssignment = async (id) => {
   return { message: 'Assignment deleted successfully' };
 };
 
-module.exports = { createAssignmentWithQuestions, getAssignmentDetails, autoGenerateAssignment, getAllAssignments, deleteAssignment };
+const updateAssignment = async (id, data) => {
+  const { title, description, due_date, status } = data;
+  const assignment = await Assignment.findByPk(id);
+  
+  if (!assignment) {
+    throw new Error('Assignment not found');
+  }
+
+  await assignment.update({
+    title,
+    description,
+    due_date,
+    status
+  });
+
+  return assignment;
+};
+
+module.exports = { createAssignmentWithQuestions, getAssignmentDetails, autoGenerateAssignment, getAllAssignments, deleteAssignment, updateAssignment };

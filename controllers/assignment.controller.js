@@ -40,6 +40,15 @@ exports.delete = async (req, res) => {
   }
 };
 
+exports.update = async (req, res) => {
+  try {
+    const result = await assignmentService.updateAssignment(req.params.id, req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
 // controllers/assignment.controller.js
 
 exports.autoCreate = async (req, res) => {

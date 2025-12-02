@@ -1,5 +1,5 @@
 const { sequelize, models } = require('../models/index.model');
-const { Enrollment, Student, CourseClass, Group } = models;
+const { Enrollment, Student, CourseClass, Group, Course, Teacher, User, Semester, Base, Floor, Room } = models;
 const { Op } = require('sequelize');
 
 const listEnrollments = async ({ course_class_id, group_id, student_id, page = 1, limit = 20 } = {}) => {
@@ -11,7 +11,21 @@ const listEnrollments = async ({ course_class_id, group_id, student_id, page = 1
 
   const result = await Enrollment.findAndCountAll({
     where,
-    include: [ { model: Student }, { model: CourseClass }, { model: Group } ],
+    include: [ 
+      { model: Student }, 
+      { 
+        model: CourseClass, 
+        include: [
+          { model: Course },
+          { model: Semester },
+          { model: Teacher, include: [{ model: User }] },
+          { model: Base },
+          { model: Floor },
+          { model: Room }
+        ]
+      }, 
+      { model: Group } 
+    ],
     limit: Number(limit),
     offset,
     order: [['enrollment_id', 'DESC']],
@@ -28,7 +42,24 @@ const listEnrollments = async ({ course_class_id, group_id, student_id, page = 1
 
 const getEnrollment = async (id) => {
   if (!id) throw new Error('Missing enrollment_id');
-  const row = await Enrollment.findOne({ where: { enrollment_id: id }, include: [ { model: Student }, { model: CourseClass }, { model: Group } ] });
+  const row = await Enrollment.findOne({ 
+    where: { enrollment_id: id }, 
+    include: [ 
+      { model: Student }, 
+      { 
+        model: CourseClass, 
+        include: [
+          { model: Course },
+          { model: Semester },
+          { model: Teacher, include: [{ model: User }] },
+          { model: Base },
+          { model: Floor },
+          { model: Room }
+        ]
+      }, 
+      { model: Group } 
+    ] 
+  });
   if (!row) throw new Error('Enrollment not found');
   return row;
 };
@@ -95,8 +126,8 @@ const dropEnrollment = async (id) => {
   const row = await Enrollment.findOne({ where: { enrollment_id: id } });
   if (!row) throw new Error('Enrollment not found');
 
-  await Enrollment.update({ status: 'dropped' }, { where: { enrollment_id: id } });
-  return await getEnrollment(id);
+  await Enrollment.destroy({ where: { enrollment_id: id } });
+  return { message: 'Enrollment dropped and deleted', enrollment_id: id };
 };
 
 const deleteEnrollment = async (id) => {

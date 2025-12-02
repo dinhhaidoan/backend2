@@ -61,8 +61,8 @@ exports.drop = async (req, res) => {
     if (!requesterId) return res.status(401).json({ error: 'Unauthorized' });
 
     const { id } = req.params;
-    const updated = await dropEnrollment(id);
-    res.json({ message: 'Dropped', enrollment: updated });
+    const result = await dropEnrollment(id);
+    res.json(result);
   } catch (err) {
     if (err.message === 'Enrollment not found') return res.status(404).json({ error: err.message });
     res.status(400).json({ error: err.message });
