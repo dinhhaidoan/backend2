@@ -167,11 +167,13 @@ const autoGenerateAssignment = async ({ course_class_id, topic, difficulty, quan
 
 const getAllAssignments = async (filters) => {
   const { CourseClass, Course } = models;
+  const { Op } = require('sequelize');
   const where = {};
   if (filters.course_class_id) {
     where.course_class_id = filters.course_class_id;
   }
-  return await Assignment.findAll({
+  
+  const assignments = await Assignment.findAll({
     where,
     include: [
       { model: Question },
@@ -186,6 +188,44 @@ const getAllAssignments = async (filters) => {
     ],
     order: [['createdAt', 'DESC']]
   });
+
+  // Thêm thống kê cho mỗi assignment
+  const assignmentsWithStats = await Promise.all(
+    assignments.map(async (assignment) => {
+      // Lấy tất cả submissions cho assignment này
+      const submissions = await Submission.findAll({
+        where: { assignment_id: assignment.assignment_id },
+        attributes: ['submission_id', 'score', 'submitted_at', 'student_id']
+      });
+
+      // Tính toán thống kê
+      const totalSubmissions = submissions.length;
+      const submittedScores = submissions.filter(s => s.score !== null).map(s => s.score);
+      const averageScore = submittedScores.length > 0 
+        ? (submittedScores.reduce((a, b) => a + b, 0) / submittedScores.length).toFixed(2)
+        : null;
+      const highestScore = submittedScores.length > 0 ? Math.max(...submittedScores) : null;
+      const lowestScore = submittedScores.length > 0 ? Math.min(...submittedScores) : null;
+
+      // Tính tổng điểm tối đa
+      const maxTotalScore = assignment.Questions.reduce((sum, q) => sum + (q.max_score || 0), 0);
+
+      const assignmentData = assignment.toJSON();
+      assignmentData.statistics = {
+        totalSubmissions,
+        submittedCount: submittedScores.length,
+        notSubmittedCount: totalSubmissions - submittedScores.length,
+        averageScore,
+        highestScore,
+        lowestScore,
+        maxTotalScore
+      };
+
+      return assignmentData;
+    })
+  );
+
+  return assignmentsWithStats;
 };
 
 const deleteAssignment = async (id) => {

@@ -258,6 +258,12 @@ const initDb = async () => {
       await Slot.seedDefaults();
       console.log('Default slots seeded.');
     }
+    // Seed majors
+    const majorCount = await Major.count();
+    if (majorCount === 0) {
+      await Major.seedDefaults();
+      console.log('Default majors seeded.');
+    }
     console.log('Database initialized successfully.');
   } catch (err) {
     console.error('Database initialization failed:', err);
@@ -297,7 +303,6 @@ const models = {
   Group,
   Enrollment,
   Slot,
-  // Course schedule models removed
   Lesson,
   LessonYoutubeLink,
   LessonDriveLink,

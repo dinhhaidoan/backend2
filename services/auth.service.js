@@ -157,27 +157,37 @@ const loginUser = async ({ user_code, user_email, password, user_password }) => 
   if (!user_code && !user_email) throw new Error('Vui lòng cung cấp user_code hoặc user_email');
 
   const where = user_code ? { user_code } : { user_email };
-  const user = await User.findOne({ where });
-  if (!user) throw new Error('Tài khoản không tồn tại');
+  
+  // First query: get user with password for verification
+  const userForAuth = await User.findOne({ where });
+  if (!userForAuth) throw new Error('Tài khoản không tồn tại');
 
-  const valid = await comparePassword(pwd, user.user_password);
+  const valid = await comparePassword(pwd, userForAuth.user_password);
   if (!valid) throw new Error('Mật khẩu không đúng');
 
   // Update last_login timestamp
   await User.update(
     { last_login: new Date() },
-    { where: { user_id: user.user_id } }
+    { where: { user_id: userForAuth.user_id } }
   );
+
+  // Second query: get full user data with all relations, excluding password
+  const user = await User.findOne({ 
+    where: { user_id: userForAuth.user_id },
+    attributes: { exclude: ['user_password'] },
+    include: [
+      { model: Role, attributes: ['role_id', 'role_name'] },
+      { model: Student, include: [ { model: ParentStudent } ] },
+      { model: Teacher, include: [ { model: AcademicDegree, attributes: ['academic_degree_id','academic_degree_name'] }, { model: Position, attributes: ['position_id','position_name'] } ] },
+      { model: Staff },
+      { model: Admin },
+    ],
+  });
 
   const token = jwt.sign({ id: user.user_id, role_id: user.role_id }, secret, { expiresIn });
 
   return {
-    user: {
-      id: user.user_id,
-      user_code: user.user_code,
-      user_email: user.user_email,
-      role_id: user.role_id,
-    },
+    user,
     token,
   };
 };
